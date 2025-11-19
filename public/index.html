@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Control - WhatsApp Bot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="row">
+            <div class="col-md-10 offset-md-1">
+                <div class="card shadow">
+                    <div class="card-header bg-success text-white">
+                        <h2 class="mb-0">🤖 Panel de Control - WhatsApp Bot</h2>
+                    </div>
+                    <div class="card-body">
+                        <div id="alert-container"></div>
+                        
+                        <form id="configForm">
+                            <!-- Prompt Global -->
+                            <div class="mb-4">
+                                <label for="promptGlobal" class="form-label fw-bold">Prompt Global</label>
+                                <textarea class="form-control" id="promptGlobal" name="promptGlobal" rows="3" 
+                                    placeholder="Eres un asistente útil y educado."></textarea>
+                                <small class="text-muted">Este es el comportamiento base del bot con Gemini</small>
+                            </div>
+
+                            <!-- API Key Gemini -->
+                            <div class="mb-4">
+                                <label for="apiKeyGemini" class="form-label fw-bold">API Key de Gemini</label>
+                                <input type="text" class="form-control" id="apiKeyGemini" name="apiKeyGemini" 
+                                    placeholder="AIzaSy...">
+                                <small class="text-muted">Obtén tu API key en <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a></small>
+                            </div>
+
+                            <!-- Grupos Permitidos -->
+                            <div class="mb-4">
+                                <label for="gruposPermitidos" class="form-label fw-bold">Grupos Permitidos</label>
+                                <textarea class="form-control" id="gruposPermitidos" name="gruposPermitidos" rows="4" 
+                                    placeholder="120363123456789012@g.us&#10;120363987654321098@g.us"></textarea>
+                                <small class="text-muted">Un ID de grupo por línea (formato: 120363XXXXXXXXXX@g.us)</small>
+                            </div>
+
+                            <!-- Comandos -->
+                            <div class="mb-4">
+                                <label for="comandos" class="form-label fw-bold">Comandos Personalizados</label>
+                                <textarea class="form-control" id="comandos" name="comandos" rows="6" 
+                                    placeholder="/ayuda=Muestra información del bot&#10;/resumen=Resume el texto enviado por el usuario"></textarea>
+                                <small class="text-muted">Formato: /comando=descripción (uno por línea)</small>
+                            </div>
+
+                            <!-- Botón Guardar -->
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-success btn-lg">
+                                    💾 Guardar Cambios
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="card-footer text-muted">
+                        <small>⚠️ Después de guardar cambios, reinicia el bot para aplicar la nueva configuración</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Cargar configuración al iniciar
+        async function loadConfig() {
+            try {
+                const response = await fetch('/config');
+                const config = await response.json();
+                
+                document.getElementById('promptGlobal').value = config.promptGlobal || '';
+                document.getElementById('apiKeyGemini').value = config.apiKeyGemini || '';
+                document.getElementById('gruposPermitidos').value = (config.gruposPermitidos || []).join('\n');
+                
+                // Convertir comandos a formato texto
+                const comandosTexto = Object.entries(config.comandos || {})
+                    .map(([cmd, desc]) => `${cmd}=${desc}`)
+                    .join('\n');
+                document.getElementById('comandos').value = comandosTexto;
+                
+            } catch (error) {
+                showAlert('Error al cargar la configuración', 'danger');
+            }
+        }
+
+        // Guardar configuración
+        document.getElementById('configForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = {
+                promptGlobal: document.getElementById('promptGlobal').value,
+                apiKeyGemini: document.getElementById('apiKeyGemini').value,
+                gruposPermitidos: document.getElementById('gruposPermitidos').value,
+                comandos: document.getElementById('comandos').value
+            };
+            
+            try {
+                const response = await fetch('/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('✅ Configuración guardada correctamente. Reinicia el bot para aplicar cambios.', 'success');
+                } else {
+                    showAlert('❌ Error al guardar: ' + result.message, 'danger');
+                }
+            } catch (error) {
+                showAlert('❌ Error de conexión con el servidor', 'danger');
+            }
+        });
+
+        // Mostrar alertas
+        function showAlert(message, type) {
+            const alertContainer = document.getElementById('alert-container');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} alert-dismissible fade show`;
+            alert.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            alertContainer.innerHTML = '';
+            alertContainer.appendChild(alert);
+            
+            // Auto-cerrar después de 5 segundos
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+
+        // Cargar configuración al cargar la página
+        loadConfig();
+    </script>
+</body>
+</html>

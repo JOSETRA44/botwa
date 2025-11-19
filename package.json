@@ -1,0 +1,26 @@
+{
+  "name": "whatsapp-bot-panel",
+  "version": "1.0.0",
+  "description": "Bot de WhatsApp con panel de control web basado en JSON",
+  "main": "bot.js",
+  "scripts": {
+    "bot": "node bot.js",
+    "panel": "node server.js",
+    "start": "node bot.js"
+  },
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "baileys",
+    "gemini",
+    "panel"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.8",
+    "@hapi/boom": "^10.0.1",
+    "express": "^4.18.2",
+    "body-parser": "^1.20.2"
+  }
+}

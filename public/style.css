@@ -1,0 +1,66 @@
+body {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px 0;
+}
+
+.card {
+    border-radius: 15px;
+    border: none;
+}
+
+.card-header {
+    border-radius: 15px 15px 0 0 !important;
+    padding: 20px;
+}
+
+.card-header h2 {
+    font-size: 1.8rem;
+}
+
+.form-label {
+    color: #333;
+    font-size: 1.1rem;
+}
+
+textarea.form-control,
+input.form-control {
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    transition: border-color 0.3s;
+}
+
+textarea.form-control:focus,
+input.form-control:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+    border: none;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    transition: transform 0.2s;
+}
+
+.btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(37, 211, 102, 0.4);
+}
+
+.alert {
+    border-radius: 8px;
+    border: none;
+}
+
+small.text-muted a {
+    color: #667eea;
+    text-decoration: none;
+}
+
+small.text-muted a:hover {
+    text-decoration: underline;
+}

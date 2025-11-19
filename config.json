@@ -1,0 +1,9 @@
+{
+  "promptGlobal": "Eres un asistente útil y educado.",
+  "apiKeyGemini": "",
+  "gruposPermitidos": [],
+  "comandos": {
+    "/ayuda": "Muestra información del bot.",
+    "/resumen": "Resume el texto enviado por el usuario."
+  }
+}
