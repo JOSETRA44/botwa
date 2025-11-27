@@ -1,5 +1,10 @@
 node_modules/
 auth_info_baileys/
+auth/
+cuentas-guardadas/
+cuentas.json
+bot-state.json
+panel-logs.json
 .env
 *.log
 .DS_Store

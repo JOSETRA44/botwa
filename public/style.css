@@ -64,3 +64,31 @@ small.text-muted a {
 small.text-muted a:hover {
     text-decoration: underline;
 }
+
+/* Logs Container */
+#logsContainer {
+    scrollbar-width: thin;
+    scrollbar-color: #666 #1a1a1a;
+}
+
+#logsContainer::-webkit-scrollbar {
+    width: 8px;
+}
+
+#logsContainer::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+#logsContainer::-webkit-scrollbar-thumb {
+    background: #666;
+    border-radius: 4px;
+}
+
+#logsContainer::-webkit-scrollbar-thumb:hover {
+    background: #888;
+}
+
+#logsContainer div {
+    padding: 2px 0;
+    word-wrap: break-word;
+}

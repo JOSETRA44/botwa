@@ -1,9 +1,61 @@
 {
-  "promptGlobal": "Eres un asistente útil y educado.",
+  "promptGlobal": "Eres un asistente amigable y conversacional. Responde de forma natural como un humano. Usa emojis ocasionalmente. Mantén respuestas cortas y directas. Sé útil pero informal. IMPORTANTE: Cuando incluyas fórmulas matemáticas, usa notación LaTeX entre símbolos de dólar: $formula$ para inline o $$formula$$ para bloques. Ejemplo: La fórmula cuadrática es $$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$",
   "apiKeyGemini": "",
-  "gruposPermitidos": [],
+  "geminiModel": "gemini-2.5-flash",
+  "gruposPermitidos": [
+    "120363283046109614@g.us"
+  ],
+  "gruposExcluidos": [],
   "comandos": {
-    "/ayuda": "Muestra información del bot.",
-    "/resumen": "Resume el texto enviado por el usuario."
+    "/menu": "Muestra el menú principal del bot",
+    "/ayuda": "Muestra información del bot",
+    "/pregunta": "Pregunta algo a la IA (Gemini)",
+    "/elon": "Pregunta a Grok (xAI de Elon Musk)",
+    "/sora": "Pregunta a ChatGPT (OpenAI)",
+    "/resumen": "Resume el texto enviado por el usuario",
+    "/gg": "Busca y envía una imagen (Unsplash)",
+    "/go": "Busca y envía una imagen (Google)",
+    "/analizar": "Analiza una imagen con IA",
+    "/guardar": "Guarda y reenvía imagen View Once",
+    "/s": "Convierte imagen/video en sticker"
+  },
+  "comandosSimples": {
+    "/biografia": "Soy un bot de WhatsApp creado por el usuario @JOSETRA44 actualmente me encuentro en desarrollo, ¡Pregúntame lo que quieras!",
+    "/horario": "⏰ Estoy disponible 24/7 para ayudarte.",
+    "/contacto": "📧 Para más información, contacta a: matasakuras@email.com"
+  },
+  "delayMin": 2000,
+  "delayMax": 5000,
+  "messageGrouping": {
+    "enabled": true,
+    "groupDelay": 3000,
+    "maxMessagesInGroup": 5,
+    "maxQueueSize": 10
+  },
+  "unsplash": {
+    "accessKey": "",
+    "secretKey": "",
+    "enabled": true
+  },
+  "googleSearch": {
+    "apiKey": "",
+    "searchEngineId": "242b199a6ef514540",
+    "enabled": true,
+    "safeSearch": false
+  },
+  "geminiVision": {
+    "apiKey": "",
+    "enabled": true,
+    "model": "gemini-2.5-flash"
+  },
+  "grok": {
+    "apiKey": "",
+    "enabled": true,
+    "model": "grok-beta"
+  },
+  "openai": {
+    "apiKey": "",
+    "enabled": true,
+    "model": "gpt-4o-mini"
   }
 }

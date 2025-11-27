@@ -3,73 +3,604 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Control - WhatsApp Bot</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <title>WhatsApp Bot - Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #25D366;
+            --primary-dark: #128C7E;
+            --secondary: #34B7F1;
+            --dark: #1a1a1a;
+            --dark-light: #2a2a2a;
+            --gray: #6b7280;
+            --gray-light: #f3f4f6;
+            --white: #ffffff;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --radius: 12px;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: var(--dark);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            background: var(--white);
+            border-radius: var(--radius);
+            padding: 24px 32px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-title h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        .bot-icon {
+            font-size: 32px;
+        }
+
+        .status-badge {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-active {
+            background: #d1fae5;
+            color: var(--success);
+        }
+
+        .status-paused {
+            background: #fef3c7;
+            color: var(--warning);
+        }
+
+        /* Grid Layout */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        /* Card */
+        .card {
+            background: var(--white);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--dark);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Buttons */
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: var(--white);
+        }
+
+        .btn-secondary {
+            background: var(--gray-light);
+            color: var(--dark);
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: var(--white);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: var(--white);
+        }
+
+        .btn-info {
+            background: var(--secondary);
+            color: var(--white);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: var(--white);
+        }
+
+        /* Stats */
+        .stats {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px;
+            background: var(--gray-light);
+            border-radius: 8px;
+            margin-top: 16px;
+        }
+
+        .stats-label {
+            font-size: 14px;
+            color: var(--gray);
+        }
+
+        .stats-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        /* Logs */
+        .logs-container {
+            background: var(--dark);
+            border-radius: 8px;
+            padding: 16px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .logs-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .logs-container::-webkit-scrollbar-track {
+            background: var(--dark-light);
+            border-radius: 4px;
+        }
+
+        .logs-container::-webkit-scrollbar-thumb {
+            background: var(--gray);
+            border-radius: 4px;
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+        }
+
+        .log-info { color: #60a5fa; }
+        .log-success { color: #34d399; }
+        .log-warning { color: #fbbf24; }
+        .log-error { color: #f87171; }
+        .log-muted { color: var(--gray); }
+
+        /* Form */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--dark);
+        }
+
+        .form-input,
+        .form-textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--gray-light);
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+            font-family: inherit;
+        }
+
+        .form-input:focus,
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .form-hint {
+            display: block;
+            font-size: 12px;
+            color: var(--gray);
+            margin-top: 4px;
+        }
+
+        .form-hint a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .form-hint a:hover {
+            text-decoration: underline;
+        }
+
+        /* Alert */
+        .alert {
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            color: var(--success);
+        }
+
+        .alert-danger {
+            background: #fee2e2;
+            color: var(--danger);
+        }
+
+        .alert-close {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: inherit;
+            opacity: 0.7;
+        }
+
+        .alert-close:hover {
+            opacity: 1;
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--white);
+            border-radius: var(--radius);
+            padding: 16px 24px;
+            text-align: center;
+            font-size: 13px;
+            color: var(--gray);
+            box-shadow: var(--shadow);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            body {
+                padding: 12px;
+            }
+
+            .header {
+                padding: 16px;
+            }
+
+            .header-title h1 {
+                font-size: 20px;
+            }
+
+            .card {
+                padding: 16px;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Loading */
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--gray-light);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .btn-save {
+            width: 100%;
+            padding: 14px;
+            font-size: 16px;
+        }
+    </style>
 </head>
 <body>
-    <div class="container mt-5">
-        <div class="row">
-            <div class="col-md-10 offset-md-1">
-                <div class="card shadow">
-                    <div class="card-header bg-success text-white">
-                        <h2 class="mb-0">🤖 Panel de Control - WhatsApp Bot</h2>
-                    </div>
-                    <div class="card-body">
-                        <div id="alert-container"></div>
-                        
-                        <form id="configForm">
-                            <!-- Prompt Global -->
-                            <div class="mb-4">
-                                <label for="promptGlobal" class="form-label fw-bold">Prompt Global</label>
-                                <textarea class="form-control" id="promptGlobal" name="promptGlobal" rows="3" 
-                                    placeholder="Eres un asistente útil y educado."></textarea>
-                                <small class="text-muted">Este es el comportamiento base del bot con Gemini</small>
-                            </div>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-title">
+                <span class="bot-icon">🤖</span>
+                <h1>WhatsApp Bot Panel</h1>
+            </div>
+            <div id="botStatus" class="status-badge status-active">
+                <span class="loading"></span>
+                Cargando...
+            </div>
+        </div>
 
-                            <!-- API Key Gemini -->
-                            <div class="mb-4">
-                                <label for="apiKeyGemini" class="form-label fw-bold">API Key de Gemini</label>
-                                <input type="text" class="form-control" id="apiKeyGemini" name="apiKeyGemini" 
-                                    placeholder="AIzaSy...">
-                                <small class="text-muted">Obtén tu API key en <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a></small>
-                            </div>
+        <!-- Alert Container -->
+        <div id="alertContainer"></div>
 
-                            <!-- Grupos Permitidos -->
-                            <div class="mb-4">
-                                <label for="gruposPermitidos" class="form-label fw-bold">Grupos Permitidos</label>
-                                <textarea class="form-control" id="gruposPermitidos" name="gruposPermitidos" rows="4" 
-                                    placeholder="120363123456789012@g.us&#10;120363987654321098@g.us"></textarea>
-                                <small class="text-muted">Un ID de grupo por línea (formato: 120363XXXXXXXXXX@g.us)</small>
-                            </div>
-
-                            <!-- Comandos -->
-                            <div class="mb-4">
-                                <label for="comandos" class="form-label fw-bold">Comandos Personalizados</label>
-                                <textarea class="form-control" id="comandos" name="comandos" rows="6" 
-                                    placeholder="/ayuda=Muestra información del bot&#10;/resumen=Resume el texto enviado por el usuario"></textarea>
-                                <small class="text-muted">Formato: /comando=descripción (uno por línea)</small>
-                            </div>
-
-                            <!-- Botón Guardar -->
-                            <div class="d-grid">
-                                <button type="submit" class="btn btn-success btn-lg">
-                                    💾 Guardar Cambios
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                    <div class="card-footer text-muted">
-                        <small>⚠️ Después de guardar cambios, reinicia el bot para aplicar la nueva configuración</small>
+        <!-- Control Panel -->
+        <div class="grid">
+            <div class="card">
+                <div class="card-title">⚙️ Control del Bot</div>
+                <div class="btn-group">
+                    <button id="btnPause" class="btn btn-warning">⏸️ Pausar</button>
+                    <button id="btnResume" class="btn btn-success">▶️ Reanudar</button>
+                    <button id="btnToggleLogs" class="btn btn-info">📋 Logs</button>
+                    <button id="btnResetCounter" class="btn btn-secondary">🔄 Reset</button>
+                </div>
+                <div class="stats">
+                    <div>
+                        <div class="stats-label">Mensajes esta hora</div>
+                        <div class="stats-value"><span id="messageCount">0</span>/100</div>
                     </div>
                 </div>
             </div>
+
+            <div class="card">
+                <div class="card-title">📋 Logs en Tiempo Real</div>
+                <div class="btn-group">
+                    <button id="btnClearLogs" class="btn btn-secondary">🗑️ Limpiar</button>
+                    <button id="btnToggleAutoScroll" class="btn btn-info">📜 Auto-scroll</button>
+                </div>
+                <div class="logs-container" id="logsContainer">
+                    <div class="log-muted">Esperando logs...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuration Form -->
+        <div class="card">
+            <div class="card-title">⚙️ Configuración</div>
+            <form id="configForm">
+                <div class="form-group">
+                    <label class="form-label">Prompt Global</label>
+                    <textarea id="promptGlobal" class="form-textarea" rows="3" placeholder="Eres un asistente útil y educado."></textarea>
+                    <span class="form-hint">Comportamiento base del bot con Gemini</span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">API Key de Gemini</label>
+                    <input type="text" id="apiKeyGemini" class="form-input" placeholder="AIzaSy...">
+                    <span class="form-hint">Obtén tu API key en <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a></span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">API Key de Grok (xAI)</label>
+                    <input type="text" id="apiKeyGrok" class="form-input" placeholder="xai-...">
+                    <span class="form-hint">Obtén tu API key en <a href="https://console.x.ai" target="_blank" rel="noopener">xAI Console</a></span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Grupos Permitidos (Lista Blanca)</label>
+                    <textarea id="gruposPermitidos" class="form-textarea" rows="4" placeholder="120363123456789012@g.us&#10;120363987654321098@g.us"></textarea>
+                    <span class="form-hint">Un ID de grupo por línea. El bot SOLO responderá en estos grupos</span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Grupos Excluidos (Lista Negra)</label>
+                    <textarea id="gruposExcluidos" class="form-textarea" rows="3" placeholder="120363111111111111@g.us"></textarea>
+                    <span class="form-hint">Grupos donde el bot NO responderá nunca</span>
+                </div>
+
+                <div class="grid">
+                    <div class="form-group">
+                        <label class="form-label" for="delayMin">Delay Mínimo (ms)</label>
+                        <input type="number" id="delayMin" class="form-input" value="2000" min="1000" max="10000" title="Delay mínimo">
+                        <span class="form-hint">Tiempo mínimo antes de responder</span>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="delayMax">Delay Máximo (ms)</label>
+                        <input type="number" id="delayMax" class="form-input" value="5000" min="2000" max="15000" title="Delay máximo">
+                        <span class="form-hint">Tiempo máximo antes de responder</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Comandos con IA</label>
+                    <textarea id="comandos" class="form-textarea" rows="4" placeholder="/ayuda=Muestra información del bot&#10;/resumen=Resume el texto enviado"></textarea>
+                    <span class="form-hint">Formato: /comando=descripción (uno por línea)</span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Comandos Simples (Sin IA)</label>
+                    <textarea id="comandosSimples" class="form-textarea" rows="6" placeholder="/biografia=🤖 Soy un bot...&#10;/horario=⏰ Disponible 24/7"></textarea>
+                    <span class="form-hint">Formato: /comando=respuesta (uno por línea)</span>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-save">
+                    💾 Guardar Cambios
+                </button>
+            </form>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            ⚠️ Después de guardar cambios, reinicia el bot para aplicar la nueva configuración
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Cargar configuración al iniciar
+        // Estado
+        let autoScroll = true;
+
+        // Actualizar estado del bot
+        async function updateBotStatus() {
+            try {
+                const response = await fetch('/state');
+                const state = await response.json();
+                
+                const statusBadge = document.getElementById('botStatus');
+                const btnToggleLogs = document.getElementById('btnToggleLogs');
+                const messageCount = document.getElementById('messageCount');
+                
+                if (state.active) {
+                    statusBadge.innerHTML = '✅ Activo';
+                    statusBadge.className = 'status-badge status-active';
+                } else {
+                    statusBadge.innerHTML = '⏸️ Pausado';
+                    statusBadge.className = 'status-badge status-paused';
+                }
+                
+                btnToggleLogs.textContent = state.logsEnabled ? '📋 Logs: ON' : '📋 Logs: OFF';
+                messageCount.textContent = state.messagesSentLastHour || 0;
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        // Control del bot
+        async function controlBot(action) {
+            try {
+                const response = await fetch('/control', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    updateBotStatus();
+                    showAlert('✅ Acción ejecutada correctamente', 'success');
+                } else {
+                    showAlert('❌ Error al ejecutar acción', 'danger');
+                }
+            } catch (error) {
+                showAlert('❌ Error de conexión', 'danger');
+            }
+        }
+
+        // Event listeners
+        document.getElementById('btnPause').addEventListener('click', () => controlBot('pause'));
+        document.getElementById('btnResume').addEventListener('click', () => controlBot('resume'));
+        document.getElementById('btnToggleLogs').addEventListener('click', () => controlBot('toggleLogs'));
+        document.getElementById('btnResetCounter').addEventListener('click', () => controlBot('resetCounter'));
+
+        // Logs
+        async function updateLogs() {
+            try {
+                const response = await fetch('/logs');
+                const data = await response.json();
+                const logsContainer = document.getElementById('logsContainer');
+                
+                if (data.logs && data.logs.length > 0) {
+                    logsContainer.innerHTML = data.logs.map(log => {
+                        let colorClass = 'log-info';
+                        if (log.type === 'warning') colorClass = 'log-warning';
+                        if (log.type === 'success') colorClass = 'log-success';
+                        if (log.type === 'error') colorClass = 'log-error';
+                        
+                        return `<div class="log-entry ${colorClass}">[${log.timestamp}] ${log.message}</div>`;
+                    }).join('');
+                    
+                    if (autoScroll) {
+                        logsContainer.scrollTop = logsContainer.scrollHeight;
+                    }
+                } else {
+                    logsContainer.innerHTML = '<div class="log-muted">No hay logs disponibles</div>';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        document.getElementById('btnClearLogs').addEventListener('click', async () => {
+            try {
+                await fetch('/logs/clear', { method: 'POST' });
+                updateLogs();
+                showAlert('🗑️ Logs limpiados', 'success');
+            } catch (error) {
+                showAlert('❌ Error al limpiar logs', 'danger');
+            }
+        });
+
+        document.getElementById('btnToggleAutoScroll').addEventListener('click', () => {
+            autoScroll = !autoScroll;
+            const btn = document.getElementById('btnToggleAutoScroll');
+            btn.textContent = autoScroll ? '📜 Auto-scroll: ON' : '📜 Auto-scroll: OFF';
+        });
+
+        // Cargar configuración
         async function loadConfig() {
             try {
                 const response = await fetch('/config');
@@ -77,14 +608,21 @@
                 
                 document.getElementById('promptGlobal').value = config.promptGlobal || '';
                 document.getElementById('apiKeyGemini').value = config.apiKeyGemini || '';
+                document.getElementById('apiKeyGrok').value = config.grok?.apiKey || '';
                 document.getElementById('gruposPermitidos').value = (config.gruposPermitidos || []).join('\n');
+                document.getElementById('gruposExcluidos').value = (config.gruposExcluidos || []).join('\n');
+                document.getElementById('delayMin').value = config.delayMin || 2000;
+                document.getElementById('delayMax').value = config.delayMax || 5000;
                 
-                // Convertir comandos a formato texto
                 const comandosTexto = Object.entries(config.comandos || {})
                     .map(([cmd, desc]) => `${cmd}=${desc}`)
                     .join('\n');
                 document.getElementById('comandos').value = comandosTexto;
-                
+
+                const comandosSimplesTexto = Object.entries(config.comandosSimples || {})
+                    .map(([cmd, resp]) => `${cmd}=${resp}`)
+                    .join('\n');
+                document.getElementById('comandosSimples').value = comandosSimplesTexto;
             } catch (error) {
                 showAlert('Error al cargar la configuración', 'danger');
             }
@@ -94,26 +632,55 @@
         document.getElementById('configForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const formData = {
-                promptGlobal: document.getElementById('promptGlobal').value,
-                apiKeyGemini: document.getElementById('apiKeyGemini').value,
-                gruposPermitidos: document.getElementById('gruposPermitidos').value,
-                comandos: document.getElementById('comandos').value
+            const promptGlobal = document.getElementById('promptGlobal').value;
+            const apiKeyGemini = document.getElementById('apiKeyGemini').value;
+            const apiKeyGrok = document.getElementById('apiKeyGrok').value;
+            const gruposPermitidos = document.getElementById('gruposPermitidos').value.split('\n').filter(g => g.trim());
+            const gruposExcluidos = document.getElementById('gruposExcluidos').value.split('\n').filter(g => g.trim());
+            const delayMin = parseInt(document.getElementById('delayMin').value);
+            const delayMax = parseInt(document.getElementById('delayMax').value);
+            
+            const comandosText = document.getElementById('comandos').value;
+            const comandos = {};
+            comandosText.split('\n').forEach(line => {
+                const [cmd, desc] = line.split('=');
+                if (cmd && desc) {
+                    comandos[cmd.trim()] = desc.trim();
+                }
+            });
+
+            const comandosSimplesText = document.getElementById('comandosSimples').value;
+            const comandosSimples = {};
+            comandosSimplesText.split('\n').forEach(line => {
+                const [cmd, resp] = line.split('=');
+                if (cmd && resp) {
+                    comandosSimples[cmd.trim()] = resp.trim();
+                }
+            });
+            
+            const configData = {
+                promptGlobal,
+                apiKeyGemini,
+                apiKeyGrok,
+                gruposPermitidos,
+                gruposExcluidos,
+                comandos,
+                comandosSimples,
+                delayMin,
+                delayMax
             };
             
             try {
                 const response = await fetch('/config', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(formData)
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(configData)
                 });
                 
                 const result = await response.json();
                 
                 if (result.success) {
-                    showAlert('✅ Configuración guardada correctamente. Reinicia el bot para aplicar cambios.', 'success');
+                    showAlert('✅ Configuración guardada. Reinicia el bot para aplicar cambios.', 'success');
                 } else {
                     showAlert('❌ Error al guardar: ' + result.message, 'danger');
                 }
@@ -124,24 +691,25 @@
 
         // Mostrar alertas
         function showAlert(message, type) {
-            const alertContainer = document.getElementById('alert-container');
+            const alertContainer = document.getElementById('alertContainer');
             const alert = document.createElement('div');
-            alert.className = `alert alert-${type} alert-dismissible fade show`;
+            alert.className = `alert alert-${type}`;
             alert.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                <span>${message}</span>
+                <button class="alert-close" onclick="this.parentElement.remove()">×</button>
             `;
             alertContainer.innerHTML = '';
             alertContainer.appendChild(alert);
             
-            // Auto-cerrar después de 5 segundos
-            setTimeout(() => {
-                alert.remove();
-            }, 5000);
+            setTimeout(() => alert.remove(), 5000);
         }
 
-        // Cargar configuración al cargar la página
+        // Inicializar
         loadConfig();
+        updateBotStatus();
+        updateLogs();
+        setInterval(updateBotStatus, 30000);
+        setInterval(updateLogs, 5000);
     </script>
 </body>
 </html>
