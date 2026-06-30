@@ -46,13 +46,29 @@ Abre: http://localhost:3000
 iniciar-todo.bat
 ```
 
+## 🔑 Configuración de API Keys
+
+Copia `.env.example` a `.env` y completa tus propias claves:
+
+```bash
+cp .env.example .env
+```
+
+Variables disponibles: `GEMINI_API_KEY`, `UNSPLASH_ACCESS_KEY`, `UNSPLASH_SECRET_KEY`, `GOOGLE_SEARCH_API_KEY`, `GEMINI_VISION_API_KEY`, `GROK_API_KEY`, `OPENAI_API_KEY`, `GEMINI_PAPEAR_API_KEY`.
+
+`.env` está en `.gitignore` y nunca debe subirse al repositorio. `config.json` solo contiene configuración no sensible (prompt, grupos, comandos, modelos).
+
 ## ⚙️ Configuración
 
 Desde el panel web (http://localhost:3000):
-- API Key de Gemini (https://makersuite.google.com/app/apikey)
+- API Key de Gemini y de Grok (se guardan en `.env`, no en `config.json`)
 - Grupos permitidos
 - Comandos personalizados
 - Prompt global
+
+## 📖 Documentación completa
+
+Ver la bóveda de Obsidian en [`BOTWA-docs/`](./BOTWA-docs/Index.md) para guías de uso, detalle de cada comando, sistema interno e historial de cambios.
 
 ## 📝 Comandos del Bot
 

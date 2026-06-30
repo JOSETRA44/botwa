@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { DisconnectReason, downloadMediaMessage } from '@whiskeysockets/baileys';
 import { loginWithQR } from './auth/loginQR.js';
 import { loginWithPhone } from './auth/loginPhone.js';
@@ -73,16 +74,43 @@ const GROUPING_DELAY = 3000; // 3 segundos para agrupar mensajes
 const MAX_MESSAGES_IN_GROUP = 5; // Máximo 5 mensajes agrupados
 const MAX_QUEUE_SIZE = 10; // Máximo 10 mensajes en cola
 
+// Inyecta las API keys desde variables de entorno (.env) en el objeto de configuración.
+// Las claves nunca viven en config.json para evitar que se filtren en el repositorio.
+function applyEnvSecrets(cfg) {
+  cfg.apiKeyGemini = process.env.GEMINI_API_KEY || cfg.apiKeyGemini || '';
+
+  cfg.unsplash = cfg.unsplash || {};
+  cfg.unsplash.accessKey = process.env.UNSPLASH_ACCESS_KEY || cfg.unsplash.accessKey || '';
+  cfg.unsplash.secretKey = process.env.UNSPLASH_SECRET_KEY || cfg.unsplash.secretKey || '';
+
+  cfg.googleSearch = cfg.googleSearch || {};
+  cfg.googleSearch.apiKey = process.env.GOOGLE_SEARCH_API_KEY || cfg.googleSearch.apiKey || '';
+
+  cfg.geminiVision = cfg.geminiVision || {};
+  cfg.geminiVision.apiKey = process.env.GEMINI_VISION_API_KEY || cfg.geminiVision.apiKey || '';
+
+  cfg.grok = cfg.grok || {};
+  cfg.grok.apiKey = process.env.GROK_API_KEY || cfg.grok.apiKey || '';
+
+  cfg.openai = cfg.openai || {};
+  cfg.openai.apiKey = process.env.OPENAI_API_KEY || cfg.openai.apiKey || '';
+
+  cfg.geminiPapear = cfg.geminiPapear || {};
+  cfg.geminiPapear.apiKey = process.env.GEMINI_PAPEAR_API_KEY || cfg.geminiPapear.apiKey || '';
+
+  return cfg;
+}
+
 // Cargar configuración desde config.json
 async function loadConfig() {
   try {
     const data = await fs.readFile(CONFIG_PATH, 'utf8');
-    config = JSON.parse(data);
+    config = applyEnvSecrets(JSON.parse(data));
     if (botState.logsEnabled) console.log('✅ Configuración cargada correctamente');
     return config;
   } catch (error) {
     console.error('❌ Error al cargar config.json:', error.message);
-    config = {
+    config = applyEnvSecrets({
       promptGlobal: "Eres un asistente útil y educado.",
       apiKeyGemini: "",
       gruposPermitidos: [],
@@ -90,7 +118,7 @@ async function loadConfig() {
       comandos: {},
       delayMin: 2000,
       delayMax: 5000
-    };
+    });
     return config;
   }
 }
@@ -269,13 +297,21 @@ async function processAIResponseWithFormulas(text, sock, remoteJid, quotedMsg) {
         }, { quoted: quotedMsg });
         
       } else if (part.type === 'formula') {
-        // Renderizar y enviar fórmula como imagen
+        // Renderizar y enviar fórmula como sticker (más compacto)
         const imageBuffer = await renderLatexToImage(part.content.latex);
         
         if (imageBuffer) {
+          // Convertir a sticker (512x512, webp)
+          const stickerBuffer = await sharp(imageBuffer)
+            .resize(512, 512, {
+              fit: 'contain',
+              background: { r: 255, g: 255, b: 255, alpha: 1 } // Fondo blanco
+            })
+            .webp()
+            .toBuffer();
+          
           await sock.sendMessage(remoteJid, {
-            image: imageBuffer,
-            caption: `📐 Fórmula: ${part.content.type === 'block' ? 'Ecuación' : 'Expresión'}`
+            sticker: stickerBuffer
           }, { quoted: quotedMsg });
         } else {
           // Si falla el renderizado, enviar como texto
@@ -762,6 +798,111 @@ async function callGemini(userMessage) {
   }
 }
 
+// Llamar a Gemini para PAPEAR (sin censura, modo brutal)
+async function callGeminiPapear(targetMessage, argumentos = '') {
+  if (!config.geminiPapear || !config.geminiPapear.apiKey) {
+    console.error('❌ Config geminiPapear no encontrado:', config.geminiPapear);
+    return '⚠️ API de Gemini Papear no configurada.';
+  }
+
+  try {
+    // Prompt SIMPLE y DIRECTO
+    let prompt = '';
+    
+    if (!targetMessage && !argumentos) {
+      // Auto-papeo
+      prompt = 'Roast corto: "Ni usar un comando sabes 💀"';
+    } else if (targetMessage) {
+      // Papear mensaje
+      prompt = `Roast esto: "${targetMessage.substring(0, 100)}". Respuesta corta con emojis 💀🔥😂`;
+    } else {
+      // Solo argumentos
+      prompt = `Roast: "${argumentos}". Respuesta corta con emojis 💀🔥😂`;
+    }
+
+    const model = config.geminiPapear.model || 'gemini-1.5-flash';
+    const apiUrl = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${config.geminiPapear.apiKey}`;
+    
+    console.log('🌐 URL:', apiUrl.replace(config.geminiPapear.apiKey, 'API_KEY_HIDDEN'));
+    console.log('📦 Modelo:', model);
+    
+    const requestBody = {
+      contents: [{
+        parts: [{
+          text: prompt
+        }]
+      }],
+      safetySettings: [
+        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
+        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' }
+      ],
+      generationConfig: {
+        temperature: 0.9,
+        topP: 0.95,
+        topK: 40,
+        maxOutputTokens: 500  // Aumentado para tener espacio suficiente
+      }
+    };
+    
+    console.log('📤 Enviando request...');
+    
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('❌ Error de API Gemini Papear:', response.status, errorData);
+      throw new Error(`Error de API: ${response.status} - ${JSON.stringify(errorData)}`);
+    }
+
+    const data = await response.json();
+    console.log('📥 Respuesta COMPLETA de Gemini:', JSON.stringify(data, null, 2));
+    
+    // Verificar si la respuesta fue bloqueada por safety
+    if (data.promptFeedback && data.promptFeedback.blockReason) {
+      console.error('⚠️ Respuesta bloqueada por promptFeedback:', data.promptFeedback.blockReason);
+      console.error('📋 Safety ratings:', JSON.stringify(data.promptFeedback.safetyRatings, null, 2));
+      return `⚠️ La IA bloqueó la respuesta por: ${data.promptFeedback.blockReason}\n\nIntenta con un mensaje menos ofensivo.`;
+    }
+    
+    // Verificar si hay candidatos
+    if (!data.candidates || data.candidates.length === 0) {
+      console.error('❌ No hay candidatos en la respuesta');
+      console.error('📋 Data completa:', JSON.stringify(data, null, 2));
+      return '⚠️ La IA no generó ninguna respuesta. Puede estar bloqueada por contenido sensible.';
+    }
+    
+    const candidate = data.candidates[0];
+    console.log('📝 Candidato:', JSON.stringify(candidate, null, 2));
+    
+    // Verificar finishReason
+    if (candidate.finishReason === 'SAFETY') {
+      console.error('⚠️ Candidato bloqueado por SAFETY');
+      console.error('📋 Safety ratings:', JSON.stringify(candidate.safetyRatings, null, 2));
+      return '⚠️ La IA bloqueó la respuesta por contenido sensible. El prompt es demasiado agresivo.';
+    }
+    
+    // Verificar contenido
+    if (!candidate.content || !candidate.content.parts || candidate.content.parts.length === 0) {
+      console.error('❌ No hay contenido en el candidato');
+      console.error('📋 Candidate completo:', JSON.stringify(candidate, null, 2));
+      return '⚠️ La IA no generó texto. Respuesta vacía.';
+    }
+    
+    const text = candidate.content.parts[0].text;
+    console.log('✅ Texto generado:', text);
+    return text;
+  } catch (error) {
+    console.error('❌ Error al papear con Gemini:', error.message);
+    return `❌ Error al generar la papeada: ${error.message}`;
+  }
+}
+
 // Procesar comandos
 async function processCommand(command, message, sock, remoteJid, msg = null) {
   const cmd = command.toLowerCase();
@@ -788,10 +929,12 @@ async function processCommand(command, message, sock, remoteJid, msg = null) {
     menu += `• /elon [texto] - Grok (xAI)\n`;
     menu += `• /sora [texto] - ChatGPT (OpenAI)\n`;
     menu += `• /resumen [texto] - Resume texto\n`;
+    menu += `• /papear [args] - Humilla brutalmente 🔥\n`;
     menu += `• /analizar - Analiza una imagen\n\n`;
     
     menu += `🎨 *Utilidades:*\n`;
-    menu += `• /s - Convierte en sticker\n`;
+    menu += `• /s - Imagen → Sticker\n`;
+    menu += `• /r - Sticker → Imagen\n`;
     menu += `• /guardar - Guarda View Once\n\n`;
     
     menu += `🖼️ *Búsqueda de Imágenes:*\n`;
@@ -1113,6 +1256,63 @@ async function processCommand(command, message, sock, remoteJid, msg = null) {
     return;
   }
   
+  if (cmd === '/r') {
+    // Mostrar estado "escribiendo..." mientras convierte el sticker
+    await simulateTyping(sock, remoteJid, 1000); // 1 segundo
+    
+    try {
+      // Intentar obtener el sticker
+      let targetMsg = msg;
+      
+      // Si es una respuesta, obtener el mensaje citado
+      if (msg.message?.extendedTextMessage?.contextInfo) {
+        const contextInfo = msg.message.extendedTextMessage.contextInfo;
+        const quotedMsg = contextInfo.quotedMessage;
+        
+        if (quotedMsg) {
+          targetMsg = {
+            key: msg.key,
+            message: quotedMsg
+          };
+        }
+      }
+      
+      // Verificar si hay sticker
+      const hasSticker = targetMsg.message?.stickerMessage;
+      
+      if (!hasSticker) {
+        await sock.sendMessage(remoteJid, { 
+          text: '⚠️ No se detectó sticker.\n\n💡 Responde a un sticker con /r para convertirlo en imagen' 
+        }, { quoted: msg });
+        return;
+      }
+      
+      // Descargar sticker
+      const buffer = await downloadMediaMessage(targetMsg, 'buffer', {});
+      
+      // Convertir sticker (webp) a imagen PNG con calidad alta
+      const imageBuffer = await sharp(buffer)
+        .png({ quality: 100 })
+        .toBuffer();
+      
+      // Enviar como imagen citando el mensaje original
+      await sock.sendMessage(remoteJid, {
+        image: imageBuffer,
+        caption: '🖼️ Sticker convertido a imagen\n\n💡 Usa /s para convertir de vuelta a sticker'
+      }, { quoted: msg });
+      
+      if (botState.logsEnabled) addLog(`🖼️ Sticker convertido a imagen`, 'success');
+      
+    } catch (error) {
+      await sock.sendMessage(remoteJid, { 
+        text: `❌ Error al convertir sticker: ${error.message}\n\n💡 Asegúrate de que sea un sticker válido` 
+      }, { quoted: msg });
+      if (botState.logsEnabled) addLog(`❌ Error convirtiendo sticker: ${error.message}`, 'error');
+    }
+    
+    return;
+  }
+  
   if (cmd === '/elon') {
     const texto = message.replace('/elon', '').trim();
     if (!texto) {
@@ -1188,6 +1388,57 @@ async function processCommand(command, message, sock, remoteJid, msg = null) {
     
     // Procesar respuesta con soporte para fórmulas LaTeX
     await processAIResponseWithFormulas(respuesta, sock, remoteJid, msg);
+    return;
+  }
+  
+  if (cmd === '/papear') {
+    // Extraer argumentos opcionales
+    const argumentos = message.replace('/papear', '').trim();
+    
+    // Intentar obtener el mensaje citado
+    const quotedMessage = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+    let targetText = '';
+    
+    if (quotedMessage) {
+      // Extraer texto del mensaje citado
+      targetText = quotedMessage.conversation || 
+                   quotedMessage.extendedTextMessage?.text || 
+                   quotedMessage.imageMessage?.caption ||
+                   '';
+    }
+    
+    // Validar: necesita mensaje citado O argumentos
+    if (!targetText && !argumentos) {
+      // Auto-papeo: el usuario usó /papear sin nada
+      await simulateTyping(sock, remoteJid, 0);
+      const papeada = await callGeminiPapear('', '');
+      await sock.sendMessage(remoteJid, { 
+        text: `🔥 *AUTO-PAPEO ACTIVADO* 🔥\n\n${papeada}` 
+      }, { quoted: msg });
+      return;
+    }
+    
+    // Mostrar estado "escribiendo..." mientras genera la papeada
+    const typingPromise = simulateTyping(sock, remoteJid, 0);
+    
+    // Generar papeada brutal
+    const papeada = await callGeminiPapear(targetText, argumentos);
+    
+    await typingPromise;
+    
+    // Enviar papeada citando el mensaje original (si existe)
+    if (quotedMessage) {
+      await sock.sendMessage(remoteJid, { 
+        text: `🔥 *PAPEADA BRUTAL* 🔥\n\n${papeada}` 
+      }, { quoted: msg });
+    } else {
+      // Si solo hay argumentos, enviar sin citar
+      await sock.sendMessage(remoteJid, { 
+        text: `🔥 *PAPEADA* 🔥\n\n${papeada}` 
+      }, { quoted: msg });
+    }
+    
+    if (botState.logsEnabled) addLog(`🔥 Papeada generada`, 'success');
     return;
   }
   

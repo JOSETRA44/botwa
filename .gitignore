@@ -6,5 +6,7 @@ cuentas.json
 bot-state.json
 panel-logs.json
 .env
+.env.*
+!.env.example
 *.log
 .DS_Store

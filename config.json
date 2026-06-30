@@ -3,7 +3,8 @@
   "apiKeyGemini": "",
   "geminiModel": "gemini-2.5-flash",
   "gruposPermitidos": [
-    "120363283046109614@g.us"
+    "120363283046109614@g.us",
+    "120363353036081498@g.us"
   ],
   "gruposExcluidos": [],
   "comandos": {
@@ -13,11 +14,13 @@
     "/elon": "Pregunta a Grok (xAI de Elon Musk)",
     "/sora": "Pregunta a ChatGPT (OpenAI)",
     "/resumen": "Resume el texto enviado por el usuario",
+    "/papear": "Humilla brutalmente en un debate (Gemini sin censura)",
     "/gg": "Busca y envía una imagen (Unsplash)",
     "/go": "Busca y envía una imagen (Google)",
     "/analizar": "Analiza una imagen con IA",
     "/guardar": "Guarda y reenvía imagen View Once",
-    "/s": "Convierte imagen/video en sticker"
+    "/s": "Convierte imagen/video en sticker",
+    "/r": "Convierte sticker en imagen"
   },
   "comandosSimples": {
     "/biografia": "Soy un bot de WhatsApp creado por el usuario @JOSETRA44 actualmente me encuentro en desarrollo, ¡Pregúntame lo que quieras!",
@@ -57,5 +60,10 @@
     "apiKey": "",
     "enabled": true,
     "model": "gpt-4o-mini"
+  },
+  "geminiPapear": {
+    "apiKey": "",
+    "enabled": true,
+    "model": "gemini-2.5-flash"
   }
 }

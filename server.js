@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import bodyParser from 'body-parser';
 import fs from 'fs/promises';
@@ -11,6 +12,59 @@ const app = express();
 const PORT = 3000;
 const CONFIG_PATH = path.join(__dirname, 'config.json');
 const STATE_PATH = path.join(__dirname, 'bot-state.json');
+const ENV_PATH = path.join(__dirname, '.env');
+
+// Inyecta las API keys desde variables de entorno (.env) en el objeto de configuración.
+// Las claves nunca viven en config.json para evitar que se filtren en el repositorio.
+function applyEnvSecrets(cfg) {
+  cfg.apiKeyGemini = process.env.GEMINI_API_KEY || cfg.apiKeyGemini || '';
+
+  cfg.unsplash = cfg.unsplash || {};
+  cfg.unsplash.accessKey = process.env.UNSPLASH_ACCESS_KEY || cfg.unsplash.accessKey || '';
+  cfg.unsplash.secretKey = process.env.UNSPLASH_SECRET_KEY || cfg.unsplash.secretKey || '';
+
+  cfg.googleSearch = cfg.googleSearch || {};
+  cfg.googleSearch.apiKey = process.env.GOOGLE_SEARCH_API_KEY || cfg.googleSearch.apiKey || '';
+
+  cfg.geminiVision = cfg.geminiVision || {};
+  cfg.geminiVision.apiKey = process.env.GEMINI_VISION_API_KEY || cfg.geminiVision.apiKey || '';
+
+  cfg.grok = cfg.grok || {};
+  cfg.grok.apiKey = process.env.GROK_API_KEY || cfg.grok.apiKey || '';
+
+  cfg.openai = cfg.openai || {};
+  cfg.openai.apiKey = process.env.OPENAI_API_KEY || cfg.openai.apiKey || '';
+
+  cfg.geminiPapear = cfg.geminiPapear || {};
+  cfg.geminiPapear.apiKey = process.env.GEMINI_PAPEAR_API_KEY || cfg.geminiPapear.apiKey || '';
+
+  return cfg;
+}
+
+// Actualiza (o agrega) una variable en el archivo .env sin tocar las demás líneas.
+async function setEnvVar(key, value) {
+  let lines = [];
+  try {
+    const data = await fs.readFile(ENV_PATH, 'utf8');
+    lines = data.split('\n');
+  } catch (error) {
+    lines = [];
+  }
+
+  const escaped = String(value).replace(/\r?\n/g, '');
+  const pattern = new RegExp(`^${key}=`);
+  const idx = lines.findIndex(line => pattern.test(line));
+
+  if (idx >= 0) {
+    lines[idx] = `${key}=${escaped}`;
+  } else {
+    if (lines.length && lines[lines.length - 1].trim() !== '') lines.push('');
+    lines[lines.length - 1] = `${key}=${escaped}`;
+  }
+
+  await fs.writeFile(ENV_PATH, lines.join('\n'), 'utf8');
+  process.env[key] = escaped;
+}
 
 // Middleware
 app.use(bodyParser.json());
@@ -21,22 +75,32 @@ app.use(express.static('public'));
 async function loadConfig() {
   try {
     const data = await fs.readFile(CONFIG_PATH, 'utf8');
-    return JSON.parse(data);
+    return applyEnvSecrets(JSON.parse(data));
   } catch (error) {
     console.error('Error al leer config.json:', error.message);
-    return {
+    return applyEnvSecrets({
       promptGlobal: "Eres un asistente útil y educado.",
       apiKeyGemini: "",
       gruposPermitidos: [],
       comandos: {}
-    };
+    });
   }
 }
 
 // Función para guardar config.json
+// Las API keys nunca se persisten aquí: se escriben en .env mediante setEnvVar().
 async function saveConfig(config) {
   try {
-    await fs.writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
+    const toSave = { ...config, apiKeyGemini: '' };
+    for (const section of ['unsplash', 'googleSearch', 'geminiVision', 'grok', 'openai', 'geminiPapear']) {
+      if (toSave[section]) {
+        toSave[section] = { ...toSave[section] };
+        if ('apiKey' in toSave[section]) toSave[section].apiKey = '';
+        if ('accessKey' in toSave[section]) toSave[section].accessKey = '';
+        if ('secretKey' in toSave[section]) toSave[section].secretKey = '';
+      }
+    }
+    await fs.writeFile(CONFIG_PATH, JSON.stringify(toSave, null, 2), 'utf8');
     return true;
   } catch (error) {
     console.error('Error al guardar config.json:', error.message);
@@ -88,18 +152,22 @@ app.post('/config', async (req, res) => {
     // Cargar config existente para preservar otras configuraciones
     const existingConfig = await loadConfig();
 
+    // Las API keys se guardan en .env, nunca en config.json
+    if (apiKeyGemini) await setEnvVar('GEMINI_API_KEY', apiKeyGemini);
+    if (apiKeyGrok) await setEnvVar('GROK_API_KEY', apiKeyGrok);
+
     // Validar y procesar datos
     const config = {
       ...existingConfig,
       promptGlobal: promptGlobal || "Eres un asistente útil y educado.",
-      apiKeyGemini: apiKeyGemini || "",
+      apiKeyGemini: apiKeyGemini || existingConfig.apiKeyGemini || "",
       gruposPermitidos: [],
       gruposExcluidos: [],
       comandos: {},
       delayMin: parseInt(delayMin) || 2000,
       delayMax: parseInt(delayMax) || 5000
     };
-    
+
     // Actualizar Grok si se proporcionó
     if (apiKeyGrok) {
       config.grok = {
