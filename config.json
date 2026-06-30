@@ -4,7 +4,8 @@
   "geminiModel": "gemini-2.5-flash",
   "gruposPermitidos": [
     "120363283046109614@g.us",
-    "120363353036081498@g.us"
+    "120363353036081498@g.us",
+    "120363428775862575@g.us"
   ],
   "gruposExcluidos": [],
   "comandos": {
