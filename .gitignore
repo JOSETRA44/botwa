@@ -5,6 +5,7 @@ cuentas-guardadas/
 cuentas.json
 bot-state.json
 panel-logs.json
+knowledge/
 .env
 .env.*
 !.env.example

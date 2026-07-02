@@ -15,6 +15,7 @@ Documentación del bot de WhatsApp (Baileys + Gemini/Grok/ChatGPT). Para la conf
 - [[Bot 24-7 en Laptop]]
 
 ## ⚡ Comandos
+- [[Comando Catalogo (RAG)]] ⭐ nuevo
 - [[Comando Elon (Grok)]]
 - [[Comando Sora (ChatGPT)]]
 - [[Comando gg (Unsplash)]]
@@ -23,6 +24,7 @@ Documentación del bot de WhatsApp (Baileys + Gemini/Grok/ChatGPT). Para la conf
 - [[Comando r y Formulas como Sticker]]
 
 ## ⚙️ Sistema
+- [[Sistema RAG - Base de Conocimiento]] ⭐ nuevo
 - [[Sistema de Cola de Mensajes]]
 - [[Pruebas del Sistema de Cola]]
 - [[Indicador Escribiendo]]

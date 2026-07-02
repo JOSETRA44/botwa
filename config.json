@@ -21,7 +21,8 @@
     "/analizar": "Analiza una imagen con IA",
     "/guardar": "Guarda y reenvía imagen View Once",
     "/s": "Convierte imagen/video en sticker",
-    "/r": "Convierte sticker en imagen"
+    "/r": "Convierte sticker en imagen",
+    "/catalogo": "Consulta la base de conocimiento del negocio (RAG)"
   },
   "comandosSimples": {
     "/biografia": "Soy un bot de WhatsApp creado por el usuario @JOSETRA44 actualmente me encuentro en desarrollo, ¡Pregúntame lo que quieras!",

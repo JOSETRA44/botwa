@@ -4,6 +4,7 @@ import bodyParser from 'body-parser';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import * as rag from './rag.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -67,8 +68,9 @@ async function setEnvVar(key, value) {
 }
 
 // Middleware
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+// Límite de 15mb: las entradas de conocimiento pueden traer imágenes en base64
+app.use(bodyParser.json({ limit: '15mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '15mb' }));
 app.use(express.static('public'));
 
 // Función para leer config.json
@@ -288,6 +290,96 @@ app.post('/control', async (req, res) => {
     res.json({ success: true, state });
   } catch (error) {
     res.status(500).json({ error: 'Error al controlar el bot' });
+  }
+});
+
+// ============================================================
+// Base de Conocimiento (RAG) - API para el panel
+// ============================================================
+
+// GET /knowledge - Listar todas las entradas
+app.get('/knowledge', async (req, res) => {
+  try {
+    const entries = await rag.listEntries();
+    res.json({ entries });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /knowledge - Crear entrada { title, text, tags?, imageBase64?, imageMime? }
+app.post('/knowledge', async (req, res) => {
+  try {
+    const { title, text, tags, imageBase64, imageMime } = req.body;
+    if (!title || !text) {
+      return res.status(400).json({ error: 'title y text son obligatorios' });
+    }
+    const tagList = typeof tags === 'string'
+      ? tags.split(',').map(t => t.trim()).filter(Boolean)
+      : (tags || []);
+    const entry = await rag.addEntry({ title, text, tags: tagList, imageBase64, imageMime });
+    res.json({ success: true, entry });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT /knowledge/:id - Actualizar entrada
+app.put('/knowledge/:id', async (req, res) => {
+  try {
+    const { title, text, tags, imageBase64, imageMime, removeImage } = req.body;
+    const tagList = typeof tags === 'string'
+      ? tags.split(',').map(t => t.trim()).filter(Boolean)
+      : tags;
+    const entry = await rag.updateEntry(req.params.id, { title, text, tags: tagList, imageBase64, imageMime, removeImage });
+    res.json({ success: true, entry });
+  } catch (error) {
+    const status = error.message.includes('no encontrada') ? 404 : 500;
+    res.status(status).json({ error: error.message });
+  }
+});
+
+// DELETE /knowledge/:id - Eliminar entrada (y su imagen)
+app.delete('/knowledge/:id', async (req, res) => {
+  try {
+    await rag.deleteEntry(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    const status = error.message.includes('no encontrada') ? 404 : 500;
+    res.status(status).json({ error: error.message });
+  }
+});
+
+// GET /knowledge/image/:file - Servir imagen de catálogo
+app.get('/knowledge/image/:file', async (req, res) => {
+  try {
+    const imagePath = rag.getImagePath(req.params.file);
+    await fs.access(imagePath);
+    res.sendFile(imagePath);
+  } catch {
+    res.status(404).json({ error: 'Imagen no encontrada' });
+  }
+});
+
+// POST /knowledge/search - Probar búsqueda { query }
+app.post('/knowledge/search', async (req, res) => {
+  try {
+    const { query } = req.body;
+    if (!query) return res.status(400).json({ error: 'query es obligatorio' });
+    const results = await rag.search(query);
+    res.json({ results });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /knowledge/reindex - Regenerar embeddings de todas las entradas
+app.post('/knowledge/reindex', async (req, res) => {
+  try {
+    const result = await rag.reindexAll();
+    res.json({ success: true, ...result });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 

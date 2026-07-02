@@ -2,6 +2,10 @@
 
 Bot de WhatsApp que usa Google Gemini para responder mensajes automáticamente.
 
+## 📚 Base de Conocimiento (RAG) para negocios
+
+El bot incluye un sistema RAG: carga la información de tu negocio (productos, precios, horarios, fotos de catálogo) desde el panel web y el bot responderá a los clientes con esos datos reales — enviando las fotos del catálogo cuando la consulta coincida. Comando en WhatsApp: `/catalogo [búsqueda]`. Los datos viven en `knowledge/` (local, nunca se sube a git).
+
 ## 🚀 Instalación
 
 ```bash

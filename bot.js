@@ -6,6 +6,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import sharp from 'sharp';
+import * as rag from './rag.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -471,15 +472,26 @@ async function processUserQueue(userId, sock) {
     
     // Mostrar estado "escribiendo..." mientras consulta Gemini
     const typingPromise = simulateTyping(sock, remoteJid, 0);
-    
+
+    // Buscar contexto en la base de conocimiento (RAG) del negocio
+    const ragResult = await getRagContext(combinedMessage);
+    if (ragResult.results.length > 0 && botState.logsEnabled) {
+      addLog(`📚 RAG: ${ragResult.results.length} coincidencia(s) para la consulta`, 'info');
+    }
+
     // Respuesta con Gemini citando el último mensaje
-    const respuesta = await callGemini(combinedMessage);
+    const respuesta = await callGemini(combinedMessage, ragResult.context);
     const lastMsg = messagesToProcess[messagesToProcess.length - 1].msg; // Último mensaje para citar
-    
+
     await typingPromise;
-    
+
     // Procesar respuesta con soporte para fórmulas LaTeX
     await processAIResponseWithFormulas(respuesta, sock, remoteJid, lastMsg);
+
+    // Si alguna coincidencia del catálogo tiene imagen, enviarla también
+    if (ragResult.images.length > 0) {
+      await sendRagImages(sock, remoteJid, ragResult.images, lastMsg);
+    }
     
     incrementMessageCount();
     if (botState.logsEnabled) {
@@ -753,13 +765,16 @@ async function callChatGPT(userMessage) {
 }
 
 // Llamar a la API de Gemini
-async function callGemini(userMessage) {
+// extraContext: bloque opcional de la base de conocimiento (RAG) que se
+// antepone al mensaje para que la IA responda con datos reales del negocio.
+async function callGemini(userMessage, extraContext = '') {
   if (!config.apiKeyGemini || config.apiKeyGemini.trim() === '') {
     return 'La API Key de Gemini no está configurada. Por favor, configúrala en el panel web.';
   }
 
   try {
-    const prompt = `${config.promptGlobal}\n\nUsuario: ${userMessage}`;
+    const contextBlock = extraContext ? `\n\n${extraContext}\n` : '';
+    const prompt = `${config.promptGlobal}${contextBlock}\n\nUsuario: ${userMessage}`;
     
     // Usar gemini-1.5-flash (más rápido y económico) o gemini-1.5-pro
     const model = config.geminiModel || 'gemini-1.5-flash';
@@ -795,6 +810,32 @@ async function callGemini(userMessage) {
   } catch (error) {
     console.error('❌ Error al llamar a Gemini:', error.message);
     return 'Error al conectar con Gemini. Verifica tu API Key.';
+  }
+}
+
+// Recupera contexto de la base de conocimiento (RAG) para una consulta.
+// Nunca lanza: si el RAG falla, el bot responde igual que antes.
+async function getRagContext(query) {
+  try {
+    return await rag.buildContext(query);
+  } catch (error) {
+    console.error('⚠️ RAG no disponible:', error.message);
+    return { context: '', images: [], results: [] };
+  }
+}
+
+// Envía las imágenes de catálogo que coincidieron con la consulta (máx. 2)
+async function sendRagImages(sock, remoteJid, images, quotedMsg) {
+  for (const img of images.slice(0, 2)) {
+    try {
+      const buffer = await fs.readFile(img.imagePath);
+      await sock.sendMessage(remoteJid, {
+        image: buffer,
+        caption: `📦 ${img.title}`
+      }, quotedMsg ? { quoted: quotedMsg } : {});
+    } catch (error) {
+      console.error('⚠️ No se pudo enviar imagen de catálogo:', error.message);
+    }
   }
 }
 
@@ -936,6 +977,10 @@ async function processCommand(command, message, sock, remoteJid, msg = null) {
     menu += `• /s - Imagen → Sticker\n`;
     menu += `• /r - Sticker → Imagen\n`;
     menu += `• /guardar - Guarda View Once\n\n`;
+
+    menu += `📚 *Negocio:*\n`;
+    menu += `• /catalogo - Ver base de conocimiento\n`;
+    menu += `• /catalogo [búsqueda] - Consultar productos/info\n\n`;
     
     menu += `🖼️ *Búsqueda de Imágenes:*\n`;
     menu += `• /gg [búsqueda] - Fotos profesionales\n`;
@@ -1362,16 +1407,67 @@ async function processCommand(command, message, sock, remoteJid, msg = null) {
     
     // Mostrar estado "escribiendo..." mientras consulta la IA
     const typingPromise = simulateTyping(sock, remoteJid, 0);
-    
-    const respuesta = await callGemini(texto);
-    
+
+    // Inyectar contexto del negocio (RAG) si hay coincidencias
+    const ragResult = await getRagContext(texto);
+    const respuesta = await callGemini(texto, ragResult.context);
+
     await typingPromise;
-    
+
     // Procesar respuesta con soporte para fórmulas LaTeX
     await processAIResponseWithFormulas(respuesta, sock, remoteJid, msg);
+
+    if (ragResult.images.length > 0) {
+      await sendRagImages(sock, remoteJid, ragResult.images, msg);
+    }
     return;
   }
-  
+
+  if (cmd === '/catalogo') {
+    const consulta = message.replace('/catalogo', '').trim();
+
+    try {
+      if (!consulta) {
+        // Sin búsqueda: listar lo que hay en la base de conocimiento
+        const entries = await rag.listEntries();
+        if (entries.length === 0) {
+          await sock.sendMessage(remoteJid, { text: '📚 La base de conocimiento está vacía.\n\nAgrega información del negocio desde el panel web (http://localhost:3000).' }, { quoted: msg });
+          return;
+        }
+        const conImagen = entries.filter(e => e.imageFile);
+        let lista = `📚 *BASE DE CONOCIMIENTO* (${entries.length} entradas)\n\n`;
+        lista += entries.map(e => `• ${e.imageFile ? '🖼️ ' : ''}${e.title}`).join('\n');
+        lista += `\n\n💡 Usa /catalogo [búsqueda] para consultar${conImagen.length ? ' y recibir fotos del catálogo' : ''}.`;
+        await sock.sendMessage(remoteJid, { text: lista }, { quoted: msg });
+        return;
+      }
+
+      await simulateTyping(sock, remoteJid, 1500);
+      const resultados = await rag.search(consulta, { topK: 3 });
+
+      if (resultados.length === 0) {
+        await sock.sendMessage(remoteJid, { text: `❌ No encontré nada sobre "${consulta}" en el catálogo.\n\n💡 Usa /catalogo (sin texto) para ver todo lo disponible.` }, { quoted: msg });
+        return;
+      }
+
+      // Responder con el texto de las coincidencias
+      const texto = resultados.map(r => `*${r.title}*\n${r.text}`).join('\n\n');
+      await sock.sendMessage(remoteJid, { text: `📚 Esto encontré:\n\n${texto}` }, { quoted: msg });
+
+      // Enviar imágenes de las coincidencias que tengan foto
+      const imagenes = resultados
+        .filter(r => r.imageFile)
+        .map(r => ({ title: r.title, imagePath: rag.getImagePath(r.imageFile) }));
+      if (imagenes.length > 0) {
+        await sendRagImages(sock, remoteJid, imagenes, msg);
+      }
+    } catch (error) {
+      console.error('❌ Error en /catalogo:', error.message);
+      await sock.sendMessage(remoteJid, { text: '❌ Error al consultar el catálogo. Intenta de nuevo.' }, { quoted: msg });
+    }
+    return;
+  }
+
   if (cmd === '/resumen') {
     const texto = message.replace('/resumen', '').trim();
     if (!texto) {
