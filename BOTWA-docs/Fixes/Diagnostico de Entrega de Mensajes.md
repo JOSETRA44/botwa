@@ -44,6 +44,23 @@ Con estos cambios, la próxima vez que un cliente diga "no me llegó nada": revi
 
 Si los cierres de sesión forzados siguen ocurriendo seguido, es una señal de que WhatsApp podría estar limitando este número por comportamiento automatizado — algo a vigilar, no un bug de código.
 
+## 🔄 Actualización: el sistema de detección funcionó (2026-07-03)
+
+Menos de un día después de implementar el listener de `messages.update`, capturó un fallo real:
+```
+[14:35:20] ✅ [CONTACTO] Respuesta enviada (1/100 esta hora)
+[14:35:20] ❌ Entrega fallida (msg 4A0F304B → 264218452435140@lid): status ERROR
+```
+junto con este log crudo de Baileys/libsignal en la consola:
+```
+Closing open session in favor of incoming prekey bundle
+Closing session: SessionEntry { ... }
+```
+
+**Causa raíz identificada:** `Closing open session in favor of incoming prekey bundle` es un mensaje conocido de libsignal (la librería de cifrado E2E que usa Baileys) — indica que el estado de sesión Signal guardado localmente para ese contacto ya no coincide con lo que espera el dispositivo remoto, forzando una renegociación. Es exactamente el mismo contacto (`264218452435140@lid`) del reporte original de este documento — y coincide con que, en una sesión anterior, se ejecutó `node bot.js` por error mientras el bot real ya estaba conectado. Dos procesos escribiendo al mismo tiempo sobre el mismo estado de sesión Signal es una causa conocida de este tipo de desincronización del ratchet criptográfico.
+
+**Qué se hizo:** se respaldaron y eliminaron los 3 archivos de sesión de ese contacto (`auth/session-264218452435140_*.json`) — no toda la carpeta `auth/` (eso hubiera forzado un nuevo escaneo de QR para toda la cuenta). Signal Protocol está diseñado para regenerar sesiones automáticamente desde un prekey bundle fresco la próxima vez que haya intercambio de mensajes con ese contacto — es la misma recuperación automática que ya se veía en el log, solo que no estaba llegando a buen puerto. El otro contacto (`137284787687557@lid`) mencionado en el reporte original no mostró evidencia de estar fallando actualmente, así que no se tocó — si vuelve a fallar, aplica el mismo arreglo.
+
 ## 🔗 Relacionado
 - [[Index]]
 - [[Diagnostico de Codigo de Emparejamiento]]

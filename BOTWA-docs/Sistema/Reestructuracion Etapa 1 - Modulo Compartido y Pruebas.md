@@ -42,9 +42,9 @@ Investigando la arquitectura se confirmó que `bot.js` y `server.js` tenían **c
 - `server.js` levantado y probado con las 5 rutas principales + un POST /config idéntico a los datos reales (round-trip sin pérdida: mismos 3 grupos, 14 comandos).
 - **No se ejecutó `node bot.js` directamente en ningún momento** — la sesión real de WhatsApp nunca se tocó.
 
-## 🗺️ Lo que sigue (futuras sesiones, no implementado aún)
+## 🗺️ Lo que sigue
 
-- **Etapa 2:** extraer los 5 clientes de IA (Gemini/Grok/ChatGPT/Papear/Vision) a un módulo `providers/` con una forma común.
+- **Etapa 2 (hecha):** ver [[Reestructuracion Etapa 2 - Proveedores de IA]].
 - **Etapa 3:** extraer la cola de mensajes y el envío a WhatsApp a un módulo `whatsapp/`.
 - **Etapa 4:** centralizar la conversión de stickers/LaTeX (hoy duplicada en 3 sitios) en `media.js`.
 - **Etapa 5:** reemplazar el dispatcher de ~600 líneas (`processCommand`) por un registro `Map<comando, handler>`.

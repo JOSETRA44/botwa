@@ -16,6 +16,14 @@ import {
   loadPanelLogs as loadPanelLogsFile,
   addPanelLog
 } from './shared/store.js';
+import { GeminiRateLimitError, makeGeminiLimiter } from './providers/geminiLimiter.js';
+import * as geminiProvider from './providers/gemini.js';
+import { callGrok as callGrokProvider } from './providers/grok.js';
+import { callChatGPT as callChatGPTProvider } from './providers/chatgpt.js';
+
+// Re-exportados para que test/geminiLimiter.test.js siga importando desde
+// bot.js sin cambios (la lógica en sí vive en providers/geminiLimiter.js).
+export { GeminiRateLimitError, makeGeminiLimiter };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -545,52 +553,6 @@ async function searchUnsplashImage(query) {
 // varios usuarios escribiendo a la vez provocan errores 429 que antes
 // se mostraban como "verifica tu API Key" (mensaje engañoso: el
 // problema es de cupo, no de autenticación).
-export class GeminiRateLimitError extends Error {}
-
-// Fábrica del limitador de tasa para Gemini (generateContent), extraída como
-// función independiente (recibe sus dependencias, no lee globals del módulo)
-// para poder probarla con node:test sin tocar la sesión real de WhatsApp.
-// Se instancia una sola vez más abajo con los valores reales de producción.
-export function makeGeminiLimiter({
-  rpmLimit = 8, addLog, isLogsEnabled, fetchImpl = fetch, now = Date.now,
-  sleepImpl = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-} = {}) {
-  const callTimestamps = [];
-
-  async function waitForSlot() {
-    const t = now();
-    while (callTimestamps.length && t - callTimestamps[0] > 60000) {
-      callTimestamps.shift();
-    }
-    if (callTimestamps.length >= rpmLimit) {
-      const waitMs = 60000 - (t - callTimestamps[0]) + 100;
-      if (isLogsEnabled?.()) addLog?.(`⏳ Límite de Gemini alcanzado, esperando ${Math.ceil(waitMs / 1000)}s...`, 'warning');
-      await sleepImpl(waitMs);
-      return waitForSlot();
-    }
-    callTimestamps.push(now());
-  }
-
-  // fetch con reintento automático ante 429 (respeta Retry-After si Google lo envía)
-  async function fetchWithRetry(url, options, maxRetries = 2) {
-    await waitForSlot();
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      const response = await fetchImpl(url, options);
-      if (response.status !== 429) return response;
-
-      if (attempt === maxRetries) {
-        throw new GeminiRateLimitError('Límite de solicitudes de Gemini alcanzado (429)');
-      }
-      const retryAfter = response.headers.get('retry-after');
-      const backoffMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : 1500 * 2 ** attempt;
-      console.warn(`⚠️ Gemini 429 (intento ${attempt + 1}/${maxRetries}), reintentando en ${backoffMs}ms`);
-      await sleepImpl(backoffMs);
-    }
-  }
-
-  return { waitForSlot, fetchWithRetry };
-}
-
 // Margen de seguridad bajo el límite real de 10 RPM del tier gratuito de
 // gemini-2.5-flash (Google lo recortó ~80% en diciembre de 2025); ese cupo
 // se comparte entre /pregunta, las respuestas automáticas, /analizar y
@@ -603,236 +565,31 @@ const geminiLimiter = makeGeminiLimiter({
 });
 
 // Analizar imagen con Gemini Vision
+// ============================================================
+// Clientes de IA (Etapa 2 de la reestructuración)
+// ============================================================
+// La lógica de cada proveedor vive en providers/*.js — estos wrappers
+// conservan exactamente el mismo nombre/firma que antes (sin parámetros
+// extra) para no tocar ningún punto de llamada ni los tests existentes;
+// solo inyectan { config, geminiLimiter } en cada llamada.
 async function analyzeImageWithGemini(imageBuffer, question = '') {
-  if (!config.geminiVision || !config.geminiVision.apiKey) {
-    return '⚠️ API de Gemini Vision no configurada.';
-  }
-
-  try {
-    const apiKey = config.geminiVision.apiKey;
-    const model = config.geminiVision.model || 'gemini-2.5-flash';
-    
-    // Convertir buffer a base64
-    const base64Image = imageBuffer.toString('base64');
-    
-    // Prompt por defecto o personalizado
-    const prompt = question || 'Describe esta imagen en detalle. Menciona objetos, colores, personas, texto visible, y cualquier detalle relevante.';
-    
-    const response = await geminiLimiter.fetchWithRetry(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: prompt },
-              {
-                inline_data: {
-                  mime_type: 'image/jpeg',
-                  data: base64Image
-                }
-              }
-            ]
-          }]
-        })
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Error de API: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-      return data.candidates[0].content.parts[0].text;
-    }
-
-    return 'No pude analizar la imagen. Intenta de nuevo.';
-  } catch (error) {
-    console.error('❌ Error al analizar imagen:', error.message);
-    if (error instanceof GeminiRateLimitError) {
-      return '⏳ Estoy recibiendo muchos mensajes ahora mismo. Espera un momento y vuelve a intentar.';
-    }
-    return '❌ Error al analizar la imagen. Verifica tu API Key de Gemini Vision.';
-  }
+  return geminiProvider.analyzeImageWithGemini(imageBuffer, question, { config, geminiLimiter });
 }
 
-// Llamar a la API de Grok (xAI)
 async function callGrok(userMessage) {
-  if (!config.grok || !config.grok.apiKey) {
-    return '⚠️ API de Grok no configurada.';
-  }
-
-  try {
-    const apiKey = config.grok.apiKey;
-    const model = config.grok.model || 'grok-beta';
-    
-    const response = await fetch(
-      'https://api.x.ai/v1/chat/completions',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          messages: [
-            {
-              role: 'system',
-              content: config.promptGlobal || 'Eres un asistente útil.'
-            },
-            {
-              role: 'user',
-              content: userMessage
-            }
-          ],
-          model: model,
-          stream: false,
-          temperature: 0.7
-        })
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Error de API: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    if (data.choices && data.choices[0] && data.choices[0].message) {
-      return data.choices[0].message.content;
-    }
-    
-    return 'No pude generar una respuesta. Intenta de nuevo.';
-  } catch (error) {
-    console.error('❌ Error al llamar a Grok:', error.message);
-    return '❌ Error al conectar con Grok. Verifica tu API Key.';
-  }
+  return callGrokProvider(userMessage, { config });
 }
 
-// Llamar a la API de ChatGPT (OpenAI)
 async function callChatGPT(userMessage) {
-  if (!config.openai || !config.openai.apiKey) {
-    return '⚠️ API de ChatGPT no configurada.';
-  }
-
-  try {
-    const apiKey = config.openai.apiKey;
-    const model = config.openai.model || 'gpt-4o-mini';
-    
-    const response = await fetch(
-      'https://api.openai.com/v1/chat/completions',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          messages: [
-            {
-              role: 'system',
-              content: config.promptGlobal || 'Eres un asistente útil.'
-            },
-            {
-              role: 'user',
-              content: userMessage
-            }
-          ],
-          model: model,
-          temperature: 0.7,
-          max_tokens: 1000
-        })
-      }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(`Error de API: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
-    }
-
-    const data = await response.json();
-    
-    if (data.choices && data.choices[0] && data.choices[0].message) {
-      return data.choices[0].message.content;
-    }
-    
-    return 'No pude generar una respuesta. Intenta de nuevo.';
-  } catch (error) {
-    console.error('❌ Error al llamar a ChatGPT:', error.message);
-    return '❌ Error al conectar con ChatGPT. Verifica tu API Key.';
-  }
+  return callChatGPTProvider(userMessage, { config });
 }
 
-// Núcleo de la llamada a Gemini: lanza en vez de devolver strings de error,
-// para que answerQuery() (modo hybrid/direct) pueda distinguir éxito de
-// fallo y decidir si cae al catálogo directo. callGemini() más abajo
-// conserva el comportamiento público de siempre envolviendo esto.
-// extraContext: bloque opcional de la base de conocimiento (RAG) que se
-// antepone al mensaje para que la IA responda con datos reales del negocio.
 async function callGeminiRaw(userMessage, extraContext = '') {
-  if (!config.apiKeyGemini || config.apiKeyGemini.trim() === '') {
-    throw new Error('GEMINI_NOT_CONFIGURED');
-  }
-
-  const contextBlock = extraContext ? `\n\n${extraContext}\n` : '';
-  const prompt = `${config.promptGlobal}${contextBlock}\n\nUsuario: ${userMessage}`;
-
-  // Usar gemini-1.5-flash (más rápido y económico) o gemini-1.5-pro
-  const model = config.geminiModel || 'gemini-1.5-flash';
-
-  const response = await geminiLimiter.fetchWithRetry(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.apiKeyGemini}`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt
-          }]
-        }]
-      })
-    }
-  );
-  // fetchGeminiWithRetry ya lanza GeminiRateLimitError si agota reintentos ante 429
-
-  if (!response.ok) {
-    throw new Error(`Error de API: ${response.status}`);
-  }
-
-  const data = await response.json();
-
-  if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-    return data.candidates[0].content.parts[0].text;
-  }
-
-  throw new Error('EMPTY_RESPONSE');
+  return geminiProvider.callGeminiRaw(userMessage, extraContext, { config, geminiLimiter });
 }
 
-// Llamar a la API de Gemini (versión pública: nunca lanza, siempre
-// devuelve un string enviable al usuario). Usada por el modo "ai" y por
-// /resumen, que siempre requieren una respuesta de IA.
 async function callGemini(userMessage, extraContext = '') {
-  try {
-    return await callGeminiRaw(userMessage, extraContext);
-  } catch (error) {
-    console.error('❌ Error al llamar a Gemini:', error.message);
-    if (error.message === 'GEMINI_NOT_CONFIGURED') {
-      return 'La API Key de Gemini no está configurada. Por favor, configúrala en el panel web.';
-    }
-    if (error instanceof GeminiRateLimitError) {
-      return '⏳ Estoy recibiendo muchos mensajes ahora mismo. Espera un momento y vuelve a intentar.';
-    }
-    if (error.message === 'EMPTY_RESPONSE') {
-      return 'No pude generar una respuesta. Intenta de nuevo.';
-    }
-    return 'Error al conectar con Gemini. Verifica tu API Key.';
-  }
+  return geminiProvider.callGemini(userMessage, extraContext, { config, geminiLimiter });
 }
 
 // Recupera contexto de la base de conocimiento (RAG) para una consulta.
@@ -968,110 +725,7 @@ function answerQueryDeps() {
 
 // Llamar a Gemini para PAPEAR (sin censura, modo brutal)
 async function callGeminiPapear(targetMessage, argumentos = '') {
-  if (!config.geminiPapear || !config.geminiPapear.apiKey) {
-    console.error('❌ Config geminiPapear no encontrado:', config.geminiPapear);
-    return '⚠️ API de Gemini Papear no configurada.';
-  }
-
-  try {
-    // Prompt SIMPLE y DIRECTO
-    let prompt = '';
-    
-    if (!targetMessage && !argumentos) {
-      // Auto-papeo
-      prompt = 'Roast corto: "Ni usar un comando sabes 💀"';
-    } else if (targetMessage) {
-      // Papear mensaje
-      prompt = `Roast esto: "${targetMessage.substring(0, 100)}". Respuesta corta con emojis 💀🔥😂`;
-    } else {
-      // Solo argumentos
-      prompt = `Roast: "${argumentos}". Respuesta corta con emojis 💀🔥😂`;
-    }
-
-    const model = config.geminiPapear.model || 'gemini-1.5-flash';
-    const apiUrl = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${config.geminiPapear.apiKey}`;
-    
-    console.log('🌐 URL:', apiUrl.replace(config.geminiPapear.apiKey, 'API_KEY_HIDDEN'));
-    console.log('📦 Modelo:', model);
-    
-    const requestBody = {
-      contents: [{
-        parts: [{
-          text: prompt
-        }]
-      }],
-      safetySettings: [
-        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
-        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
-        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
-        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' }
-      ],
-      generationConfig: {
-        temperature: 0.9,
-        topP: 0.95,
-        topK: 40,
-        maxOutputTokens: 500  // Aumentado para tener espacio suficiente
-      }
-    };
-    
-    console.log('📤 Enviando request...');
-    
-    const response = await geminiLimiter.fetchWithRetry(apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody)
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('❌ Error de API Gemini Papear:', response.status, errorData);
-      throw new Error(`Error de API: ${response.status} - ${JSON.stringify(errorData)}`);
-    }
-
-    const data = await response.json();
-    console.log('📥 Respuesta COMPLETA de Gemini:', JSON.stringify(data, null, 2));
-    
-    // Verificar si la respuesta fue bloqueada por safety
-    if (data.promptFeedback && data.promptFeedback.blockReason) {
-      console.error('⚠️ Respuesta bloqueada por promptFeedback:', data.promptFeedback.blockReason);
-      console.error('📋 Safety ratings:', JSON.stringify(data.promptFeedback.safetyRatings, null, 2));
-      return `⚠️ La IA bloqueó la respuesta por: ${data.promptFeedback.blockReason}\n\nIntenta con un mensaje menos ofensivo.`;
-    }
-    
-    // Verificar si hay candidatos
-    if (!data.candidates || data.candidates.length === 0) {
-      console.error('❌ No hay candidatos en la respuesta');
-      console.error('📋 Data completa:', JSON.stringify(data, null, 2));
-      return '⚠️ La IA no generó ninguna respuesta. Puede estar bloqueada por contenido sensible.';
-    }
-    
-    const candidate = data.candidates[0];
-    console.log('📝 Candidato:', JSON.stringify(candidate, null, 2));
-    
-    // Verificar finishReason
-    if (candidate.finishReason === 'SAFETY') {
-      console.error('⚠️ Candidato bloqueado por SAFETY');
-      console.error('📋 Safety ratings:', JSON.stringify(candidate.safetyRatings, null, 2));
-      return '⚠️ La IA bloqueó la respuesta por contenido sensible. El prompt es demasiado agresivo.';
-    }
-    
-    // Verificar contenido
-    if (!candidate.content || !candidate.content.parts || candidate.content.parts.length === 0) {
-      console.error('❌ No hay contenido en el candidato');
-      console.error('📋 Candidate completo:', JSON.stringify(candidate, null, 2));
-      return '⚠️ La IA no generó texto. Respuesta vacía.';
-    }
-    
-    const text = candidate.content.parts[0].text;
-    console.log('✅ Texto generado:', text);
-    return text;
-  } catch (error) {
-    console.error('❌ Error al papear con Gemini:', error.message);
-    if (error instanceof GeminiRateLimitError) {
-      return '⏳ Estoy recibiendo muchos mensajes ahora mismo. Espera un momento y vuelve a intentar.';
-    }
-    return `❌ Error al generar la papeada: ${error.message}`;
-  }
+  return geminiProvider.callGeminiPapear(targetMessage, argumentos, { config, geminiLimiter });
 }
 
 // Procesar comandos

@@ -24,7 +24,8 @@ Documentación del bot de WhatsApp (Baileys + Gemini/Grok/ChatGPT). Para la conf
 - [[Comando r y Formulas como Sticker]]
 
 ## ⚙️ Sistema
-- [[Reestructuracion Etapa 1 - Modulo Compartido y Pruebas]] ⭐ nuevo
+- [[Reestructuracion Etapa 2 - Proveedores de IA]] ⭐ nuevo
+- [[Reestructuracion Etapa 1 - Modulo Compartido y Pruebas]]
 - [[Modo de Respuesta Hibrido]]
 - [[Panel Web - Arquitectura y Diseño Editorial]]
 - [[Sistema RAG - Base de Conocimiento]]
