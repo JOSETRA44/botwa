@@ -77,8 +77,9 @@ export async function callGeminiRaw(userMessage, extraContext = '', { config, ge
   const contextBlock = extraContext ? `\n\n${extraContext}\n` : '';
   const prompt = `${config.promptGlobal}${contextBlock}\n\nUsuario: ${userMessage}`;
 
-  // Usar gemini-1.5-flash (más rápido y económico) o gemini-1.5-pro
-  const model = config.geminiModel || 'gemini-1.5-flash';
+  // gemini-1.5-* fue retirado por Google — gemini-2.5-flash es el que de
+  // hecho da más RPM gratis (15) que el "recomendado" más nuevo (10).
+  const model = config.geminiModel || 'gemini-2.5-flash';
 
   const response = await geminiLimiter.fetchWithRetry(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.apiKeyGemini}`,
@@ -154,7 +155,7 @@ export async function callGeminiPapear(targetMessage, argumentos = '', { config,
       prompt = `Roast: "${argumentos}". Respuesta corta con emojis 💀🔥😂`;
     }
 
-    const model = config.geminiPapear.model || 'gemini-1.5-flash';
+    const model = config.geminiPapear.model || 'gemini-2.5-flash';
     const apiUrl = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${config.geminiPapear.apiKey}`;
 
     console.log('🌐 URL:', apiUrl.replace(config.geminiPapear.apiKey, 'API_KEY_HIDDEN'));

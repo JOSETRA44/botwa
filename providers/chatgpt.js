@@ -38,6 +38,20 @@ export async function callChatGPT(userMessage, { config, fetchImpl = fetch }) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      console.error(`❌ Error de API ChatGPT (${response.status}):`, errorData);
+      // La API Key puede ser válida y el problema ser otro (sin
+      // billing/créditos, límite de cuota) — no siempre es "verifica tu
+      // API Key" como decía antes, ese mensaje mandaba a revisar lo que
+      // no era.
+      if (response.status === 401) {
+        return '❌ API Key de OpenAI inválida o revocada.';
+      }
+      if (response.status === 429 && errorData.error?.code === 'insufficient_quota') {
+        return '⚠️ La cuenta de OpenAI no tiene crédito/billing activo. Revisa la facturación en platform.openai.com.';
+      }
+      if (response.status === 429) {
+        return '⏳ Límite de solicitudes de OpenAI alcanzado. Espera un momento y vuelve a intentar.';
+      }
       throw new Error(`Error de API: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
     }
 
@@ -50,6 +64,6 @@ export async function callChatGPT(userMessage, { config, fetchImpl = fetch }) {
     return 'No pude generar una respuesta. Intenta de nuevo.';
   } catch (error) {
     console.error('❌ Error al llamar a ChatGPT:', error.message);
-    return '❌ Error al conectar con ChatGPT. Verifica tu API Key.';
+    return '❌ Error al conectar con ChatGPT. Intenta de nuevo más tarde.';
   }
 }

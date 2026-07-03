@@ -25,15 +25,44 @@ test('callGrok: devuelve el texto del primer choice', async () => {
   assert.equal(result, 'respuesta de grok');
 });
 
-test('callGrok: API responde con error, devuelve mensaje amigable sin lanzar', async () => {
-  const fetchImpl = async () => ({ ok: false, status: 401 });
+test('callGrok: 401 reporta API Key inválida, no un genérico "revisa tu key"', async () => {
+  const fetchImpl = async () => ({ ok: false, status: 401, json: async () => ({}) });
   const result = await callGrok('hola', { config: { grok: { apiKey: 'x' } }, fetchImpl });
-  assert.match(result, /Error al conectar con Grok/);
+  assert.match(result, /API Key de Grok inválida/);
+});
+
+test('callGrok: 403 reporta falta de créditos/licencia, no "verifica tu API Key"', async () => {
+  const fetchImpl = async () => ({ ok: false, status: 403, json: async () => ({ error: 'no credits' }) });
+  const result = await callGrok('hola', { config: { grok: { apiKey: 'x' } }, fetchImpl });
+  assert.match(result, /créditos/);
+  assert.doesNotMatch(result, /Verifica tu API Key/);
+});
+
+test('callGrok: 400 (modelo inválido/retirado) menciona el nombre del modelo', async () => {
+  const fetchImpl = async () => ({ ok: false, status: 400, json: async () => ({ error: 'Model not found: grok-beta' }) });
+  const result = await callGrok('hola', { config: { grok: { apiKey: 'x', model: 'grok-beta' } }, fetchImpl });
+  assert.match(result, /grok-beta/);
 });
 
 test('callChatGPT: sin API key configurada, no intenta la llamada', async () => {
   const result = await callChatGPT('hola', { config: { openai: {} } });
   assert.match(result, /no configurada/);
+});
+
+test('callChatGPT: 429 insufficient_quota reporta falta de billing, no "verifica tu API Key"', async () => {
+  const fetchImpl = async () => ({
+    ok: false,
+    status: 429,
+    json: async () => ({ error: { code: 'insufficient_quota', message: 'You exceeded your current quota' } })
+  });
+  const result = await callChatGPT('hola', { config: { openai: { apiKey: 'x' } }, fetchImpl });
+  assert.match(result, /crédito\/billing/);
+});
+
+test('callChatGPT: 401 reporta API Key inválida', async () => {
+  const fetchImpl = async () => ({ ok: false, status: 401, json: async () => ({}) });
+  const result = await callChatGPT('hola', { config: { openai: { apiKey: 'x' } }, fetchImpl });
+  assert.match(result, /API Key de OpenAI inválida/);
 });
 
 test('callChatGPT: devuelve el texto del primer choice', async () => {

@@ -57,7 +57,7 @@
   "grok": {
     "apiKey": "",
     "enabled": true,
-    "model": "grok-beta"
+    "model": "grok-4-fast-non-reasoning"
   },
   "openai": {
     "apiKey": "",

@@ -8,7 +8,10 @@ export async function callGrok(userMessage, { config, fetchImpl = fetch }) {
 
   try {
     const apiKey = config.grok.apiKey;
-    const model = config.grok.model || 'grok-beta';
+    // grok-beta y otros alias *-beta/*-fast/*-latest de la familia grok-3/
+    // grok-4 fueron retirados por xAI el 15 de mayo de 2026 — sin un
+    // config.grok.model explícito, usar un nombre de modelo vigente.
+    const model = config.grok.model || 'grok-4-fast-non-reasoning';
 
     const response = await fetchImpl(
       'https://api.x.ai/v1/chat/completions',
@@ -37,6 +40,23 @@ export async function callGrok(userMessage, { config, fetchImpl = fetch }) {
     );
 
     if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({}));
+      console.error(`❌ Error de API Grok (${response.status}):`, errorBody);
+      // La API Key puede ser válida y el problema ser otro (modelo retirado,
+      // cuenta sin créditos) — no siempre es "verifica tu API Key" como
+      // decía antes, ese mensaje mandaba a revisar lo que no era.
+      if (response.status === 401) {
+        return '❌ API Key de Grok inválida o revocada.';
+      }
+      if (response.status === 403) {
+        return '⚠️ La cuenta de Grok no tiene créditos/licencia activa. Revisa la facturación en console.x.ai.';
+      }
+      if (response.status === 429) {
+        return '⏳ Límite de solicitudes de Grok alcanzado. Espera un momento y vuelve a intentar.';
+      }
+      if (response.status === 400) {
+        return `❌ Grok rechazó la solicitud (modelo "${model}" puede no existir o estar retirado).`;
+      }
       throw new Error(`Error de API: ${response.status}`);
     }
 
@@ -49,6 +69,6 @@ export async function callGrok(userMessage, { config, fetchImpl = fetch }) {
     return 'No pude generar una respuesta. Intenta de nuevo.';
   } catch (error) {
     console.error('❌ Error al llamar a Grok:', error.message);
-    return '❌ Error al conectar con Grok. Verifica tu API Key.';
+    return '❌ Error al conectar con Grok. Intenta de nuevo más tarde.';
   }
 }
