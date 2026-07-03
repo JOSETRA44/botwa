@@ -61,7 +61,7 @@ async function saveKB() {
 
 // ---------- Embeddings ----------
 
-async function embedText(text, taskType = 'RETRIEVAL_DOCUMENT') {
+async function embedText(text, taskType = 'RETRIEVAL_DOCUMENT', retriesLeft = 2) {
   const apiKey = getApiKey();
   if (!apiKey) return null;
   try {
@@ -79,6 +79,14 @@ async function embedText(text, taskType = 'RETRIEVAL_DOCUMENT') {
       }
     );
     if (!response.ok) {
+      // 429: cupo de embeddings agotado (cuota separada de generateContent,
+      // normalmente más generosa) — reintenta con backoff antes de rendirse.
+      if (response.status === 429 && retriesLeft > 0) {
+        const retryAfter = response.headers.get('retry-after');
+        const backoffMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : 1500 * 2 ** (2 - retriesLeft);
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        return embedText(text, taskType, retriesLeft - 1);
+      }
       console.error('❌ Error embedding API:', response.status);
       return null;
     }

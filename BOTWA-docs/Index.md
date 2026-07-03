@@ -35,6 +35,7 @@ Documentación del bot de WhatsApp (Baileys + Gemini/Grok/ChatGPT). Para la conf
 - [[Panel Web - Nuevo Diseño]] (histórico)
 
 ## 🔧 Fixes
+- [[Fix Error 429 Gemini - Limite de Cuota]] ⭐ nuevo
 - [[Diagnostico de Codigo de Emparejamiento]]
 - [[Fix Papear - Debug]]
 - [[Fix Papear - Definitivo]]

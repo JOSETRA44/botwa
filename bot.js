@@ -603,6 +603,52 @@ async function searchUnsplashImage(query) {
   }
 }
 
+// ============================================================
+// Límite de tasa para Gemini (generateContent)
+// ============================================================
+// El tier gratuito de gemini-2.5-flash permite solo ~10 solicitudes
+// por minuto (Google lo recortó ~80% en diciembre de 2025) y ese cupo
+// se comparte entre /pregunta, las respuestas automáticas, /analizar
+// y /papear porque todas usan el mismo modelo. Sin este límite,
+// varios usuarios escribiendo a la vez provocan errores 429 que antes
+// se mostraban como "verifica tu API Key" (mensaje engañoso: el
+// problema es de cupo, no de autenticación).
+const GEMINI_RPM_LIMIT = 8; // margen de seguridad bajo el límite real de 10 RPM
+const geminiCallTimestamps = [];
+
+async function waitForGeminiSlot() {
+  const now = Date.now();
+  while (geminiCallTimestamps.length && now - geminiCallTimestamps[0] > 60000) {
+    geminiCallTimestamps.shift();
+  }
+  if (geminiCallTimestamps.length >= GEMINI_RPM_LIMIT) {
+    const waitMs = 60000 - (now - geminiCallTimestamps[0]) + 100;
+    if (botState.logsEnabled) addLog(`⏳ Límite de Gemini alcanzado, esperando ${Math.ceil(waitMs / 1000)}s...`, 'warning');
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+    return waitForGeminiSlot();
+  }
+  geminiCallTimestamps.push(Date.now());
+}
+
+class GeminiRateLimitError extends Error {}
+
+// fetch con reintento automático ante 429 (respeta Retry-After si Google lo envía)
+async function fetchGeminiWithRetry(url, options, maxRetries = 2) {
+  await waitForGeminiSlot();
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const response = await fetch(url, options);
+    if (response.status !== 429) return response;
+
+    if (attempt === maxRetries) {
+      throw new GeminiRateLimitError('Límite de solicitudes de Gemini alcanzado (429)');
+    }
+    const retryAfter = response.headers.get('retry-after');
+    const backoffMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : 1500 * 2 ** attempt;
+    console.warn(`⚠️ Gemini 429 (intento ${attempt + 1}/${maxRetries}), reintentando en ${backoffMs}ms`);
+    await new Promise((resolve) => setTimeout(resolve, backoffMs));
+  }
+}
+
 // Analizar imagen con Gemini Vision
 async function analyzeImageWithGemini(imageBuffer, question = '') {
   if (!config.geminiVision || !config.geminiVision.apiKey) {
@@ -619,7 +665,7 @@ async function analyzeImageWithGemini(imageBuffer, question = '') {
     // Prompt por defecto o personalizado
     const prompt = question || 'Describe esta imagen en detalle. Menciona objetos, colores, personas, texto visible, y cualquier detalle relevante.';
     
-    const response = await fetch(
+    const response = await fetchGeminiWithRetry(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
@@ -645,14 +691,17 @@ async function analyzeImageWithGemini(imageBuffer, question = '') {
     }
 
     const data = await response.json();
-    
+
     if (data.candidates && data.candidates[0] && data.candidates[0].content) {
       return data.candidates[0].content.parts[0].text;
     }
-    
+
     return 'No pude analizar la imagen. Intenta de nuevo.';
   } catch (error) {
     console.error('❌ Error al analizar imagen:', error.message);
+    if (error instanceof GeminiRateLimitError) {
+      return '⏳ Estoy recibiendo muchos mensajes ahora mismo. Espera un momento y vuelve a intentar.';
+    }
     return '❌ Error al analizar la imagen. Verifica tu API Key de Gemini Vision.';
   }
 }
@@ -779,7 +828,7 @@ async function callGemini(userMessage, extraContext = '') {
     // Usar gemini-1.5-flash (más rápido y económico) o gemini-1.5-pro
     const model = config.geminiModel || 'gemini-1.5-flash';
     
-    const response = await fetch(
+    const response = await fetchGeminiWithRetry(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.apiKeyGemini}`,
       {
         method: 'POST',
@@ -801,14 +850,17 @@ async function callGemini(userMessage, extraContext = '') {
     }
 
     const data = await response.json();
-    
+
     if (data.candidates && data.candidates[0] && data.candidates[0].content) {
       return data.candidates[0].content.parts[0].text;
     }
-    
+
     return 'No pude generar una respuesta. Intenta de nuevo.';
   } catch (error) {
     console.error('❌ Error al llamar a Gemini:', error.message);
+    if (error instanceof GeminiRateLimitError) {
+      return '⏳ Estoy recibiendo muchos mensajes ahora mismo. Espera un momento y vuelve a intentar.';
+    }
     return 'Error al conectar con Gemini. Verifica tu API Key.';
   }
 }
@@ -889,7 +941,7 @@ async function callGeminiPapear(targetMessage, argumentos = '') {
     
     console.log('📤 Enviando request...');
     
-    const response = await fetch(apiUrl, {
+    const response = await fetchGeminiWithRetry(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -940,6 +992,9 @@ async function callGeminiPapear(targetMessage, argumentos = '') {
     return text;
   } catch (error) {
     console.error('❌ Error al papear con Gemini:', error.message);
+    if (error instanceof GeminiRateLimitError) {
+      return '⏳ Estoy recibiendo muchos mensajes ahora mismo. Espera un momento y vuelve a intentar.';
+    }
     return `❌ Error al generar la papeada: ${error.message}`;
   }
 }
