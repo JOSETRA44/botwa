@@ -135,7 +135,7 @@ async function runSearch() {
     resultsDiv.innerHTML = results.map((r) => `
       <div class="kb-search-result">
         <span class="kb-score">${(r.score * 100).toFixed(0)}%</span>
-        — <b>${escapeHtml(r.title)}</b>${r.imageFile ? ' 🖼️' : ''}<br>
+        — <b>${escapeHtml(r.title)}</b>${r.imageFile ? ' 🖼️' : ''}${r.highConfidence ? ' <span class="choice-card-badge">Respuesta directa</span>' : ''}<br>
         ${escapeHtml(r.text.slice(0, 140))}${r.text.length > 140 ? '…' : ''}
       </div>
     `).join('');

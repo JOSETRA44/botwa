@@ -5,6 +5,16 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import * as rag from './rag.js';
+import {
+  DEFAULT_CONFIG,
+  DEFAULT_BOT_STATE,
+  loadConfig,
+  saveConfig,
+  loadBotState,
+  saveBotState,
+  loadPanelLogs,
+  clearPanelLogs
+} from './shared/store.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,34 +23,8 @@ const app = express();
 const PORT = 3000;
 const CONFIG_PATH = path.join(__dirname, 'config.json');
 const STATE_PATH = path.join(__dirname, 'bot-state.json');
+const LOGS_PATH = path.join(__dirname, 'panel-logs.json');
 const ENV_PATH = path.join(__dirname, '.env');
-
-// Inyecta las API keys desde variables de entorno (.env) en el objeto de configuración.
-// Las claves nunca viven en config.json para evitar que se filtren en el repositorio.
-function applyEnvSecrets(cfg) {
-  cfg.apiKeyGemini = process.env.GEMINI_API_KEY || cfg.apiKeyGemini || '';
-
-  cfg.unsplash = cfg.unsplash || {};
-  cfg.unsplash.accessKey = process.env.UNSPLASH_ACCESS_KEY || cfg.unsplash.accessKey || '';
-  cfg.unsplash.secretKey = process.env.UNSPLASH_SECRET_KEY || cfg.unsplash.secretKey || '';
-
-  cfg.googleSearch = cfg.googleSearch || {};
-  cfg.googleSearch.apiKey = process.env.GOOGLE_SEARCH_API_KEY || cfg.googleSearch.apiKey || '';
-
-  cfg.geminiVision = cfg.geminiVision || {};
-  cfg.geminiVision.apiKey = process.env.GEMINI_VISION_API_KEY || cfg.geminiVision.apiKey || '';
-
-  cfg.grok = cfg.grok || {};
-  cfg.grok.apiKey = process.env.GROK_API_KEY || cfg.grok.apiKey || '';
-
-  cfg.openai = cfg.openai || {};
-  cfg.openai.apiKey = process.env.OPENAI_API_KEY || cfg.openai.apiKey || '';
-
-  cfg.geminiPapear = cfg.geminiPapear || {};
-  cfg.geminiPapear.apiKey = process.env.GEMINI_PAPEAR_API_KEY || cfg.geminiPapear.apiKey || '';
-
-  return cfg;
-}
 
 // Actualiza (o agrega) una variable en el archivo .env sin tocar las demás líneas.
 async function setEnvVar(key, value) {
@@ -73,86 +57,47 @@ app.use(bodyParser.json({ limit: '15mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '15mb' }));
 app.use(express.static('public'));
 
-// Función para leer config.json
-async function loadConfig() {
-  try {
-    const data = await fs.readFile(CONFIG_PATH, 'utf8');
-    return applyEnvSecrets(JSON.parse(data));
-  } catch (error) {
-    console.error('Error al leer config.json:', error.message);
-    return applyEnvSecrets({
-      promptGlobal: "Eres un asistente útil y educado.",
-      apiKeyGemini: "",
-      gruposPermitidos: [],
-      comandos: {}
-    });
-  }
-}
-
-// Función para guardar config.json
-// Las API keys nunca se persisten aquí: se escriben en .env mediante setEnvVar().
-async function saveConfig(config) {
-  try {
-    const toSave = { ...config, apiKeyGemini: '' };
-    for (const section of ['unsplash', 'googleSearch', 'geminiVision', 'grok', 'openai', 'geminiPapear']) {
-      if (toSave[section]) {
-        toSave[section] = { ...toSave[section] };
-        if ('apiKey' in toSave[section]) toSave[section].apiKey = '';
-        if ('accessKey' in toSave[section]) toSave[section].accessKey = '';
-        if ('secretKey' in toSave[section]) toSave[section].secretKey = '';
-      }
-    }
-    await fs.writeFile(CONFIG_PATH, JSON.stringify(toSave, null, 2), 'utf8');
-    return true;
-  } catch (error) {
-    console.error('Error al guardar config.json:', error.message);
-    return false;
-  }
-}
-
-// Función para leer estado del bot
-async function loadBotState() {
-  try {
-    const data = await fs.readFile(STATE_PATH, 'utf8');
-    return JSON.parse(data);
-  } catch (error) {
-    return {
-      active: true,
-      logsEnabled: false,
-      messagesSentLastHour: 0,
-      lastHourReset: Date.now()
-    };
-  }
-}
-
-// Función para guardar estado del bot
-async function saveBotState(state) {
-  try {
-    await fs.writeFile(STATE_PATH, JSON.stringify(state, null, 2), 'utf8');
-    return true;
-  } catch (error) {
-    console.error('Error al guardar estado:', error.message);
-    return false;
-  }
-}
-
 // GET /config - Devuelve la configuración actual
 app.get('/config', async (req, res) => {
   try {
-    const config = await loadConfig();
+    const config = await loadConfig(CONFIG_PATH, DEFAULT_CONFIG);
     res.json(config);
   } catch (error) {
     res.status(500).json({ error: 'Error al cargar configuración' });
   }
 });
 
+// El panel (public/js/config.js) ya envía los grupos como array y los
+// comandos como objeto {comando: texto} — pero se acepta también el
+// formato de texto plano (líneas "a\nb" / "/cmd=texto") por si alguna
+// otra integración sigue mandando strings crudas.
+function toStringArray(value) {
+  if (Array.isArray(value)) return value.map(v => String(v).trim()).filter(Boolean);
+  if (typeof value === 'string') return value.split(/[\n,]/).map(v => v.trim()).filter(Boolean);
+  return [];
+}
+
+function toCommandObject(value) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    const result = {};
+    value.split('\n').filter(l => l.trim().length > 0).forEach(linea => {
+      const [cmd, ...resto] = linea.split('=');
+      const desc = resto.join('=').trim();
+      if (cmd && cmd.trim().startsWith('/') && desc) result[cmd.trim()] = desc;
+    });
+    return result;
+  }
+  return {};
+}
+
 // POST /config - Actualiza la configuración
 app.post('/config', async (req, res) => {
   try {
-    const { promptGlobal, apiKeyGemini, apiKeyGrok, gruposPermitidos, gruposExcluidos, comandos, delayMin, delayMax } = req.body;
+    const { promptGlobal, apiKeyGemini, apiKeyGrok, gruposPermitidos, gruposExcluidos, comandos, comandosSimples, delayMin, delayMax, responseMode } = req.body;
 
     // Cargar config existente para preservar otras configuraciones
-    const existingConfig = await loadConfig();
+    const existingConfig = await loadConfig(CONFIG_PATH, DEFAULT_CONFIG);
 
     // Las API keys se guardan en .env, nunca en config.json
     if (apiKeyGemini) await setEnvVar('GEMINI_API_KEY', apiKeyGemini);
@@ -163,9 +108,11 @@ app.post('/config', async (req, res) => {
       ...existingConfig,
       promptGlobal: promptGlobal || "Eres un asistente útil y educado.",
       apiKeyGemini: apiKeyGemini || existingConfig.apiKeyGemini || "",
-      gruposPermitidos: [],
-      gruposExcluidos: [],
-      comandos: {},
+      responseMode: ['ai', 'hybrid', 'direct'].includes(responseMode) ? responseMode : (existingConfig.responseMode || 'hybrid'),
+      gruposPermitidos: toStringArray(gruposPermitidos),
+      gruposExcluidos: toStringArray(gruposExcluidos),
+      comandos: toCommandObject(comandos),
+      comandosSimples: toCommandObject(comandosSimples),
       delayMin: parseInt(delayMin) || 2000,
       delayMax: parseInt(delayMax) || 5000
     };
@@ -179,38 +126,9 @@ app.post('/config', async (req, res) => {
       };
     }
 
-    // Procesar grupos permitidos (separados por comas o saltos de línea)
-    if (gruposPermitidos) {
-      const grupos = gruposPermitidos
-        .split(/[\n,]/)
-        .map(g => g.trim())
-        .filter(g => g.length > 0);
-      config.gruposPermitidos = grupos;
-    }
-
-    // Procesar grupos excluidos
-    if (gruposExcluidos) {
-      const grupos = gruposExcluidos
-        .split(/[\n,]/)
-        .map(g => g.trim())
-        .filter(g => g.length > 0);
-      config.gruposExcluidos = grupos;
-    }
-
-    // Procesar comandos (formato: /comando=descripción, uno por línea)
-    if (comandos) {
-      const lineas = comandos.split('\n').filter(l => l.trim().length > 0);
-      lineas.forEach(linea => {
-        const [cmd, desc] = linea.split('=').map(s => s.trim());
-        if (cmd && cmd.startsWith('/') && desc) {
-          config.comandos[cmd] = desc;
-        }
-      });
-    }
-
     // Guardar configuración
-    const saved = await saveConfig(config);
-    
+    const saved = await saveConfig(CONFIG_PATH, config);
+
     if (saved) {
       res.json({ success: true, message: 'Configuración guardada correctamente' });
     } else {
@@ -225,7 +143,7 @@ app.post('/config', async (req, res) => {
 // GET /state - Obtener estado del bot
 app.get('/state', async (req, res) => {
   try {
-    const state = await loadBotState();
+    const state = await loadBotState(STATE_PATH, DEFAULT_BOT_STATE);
     res.json(state);
   } catch (error) {
     res.status(500).json({ error: 'Error al cargar estado' });
@@ -233,18 +151,10 @@ app.get('/state', async (req, res) => {
 });
 
 // GET /logs - Obtener logs del bot
-app.get('/logs', (req, res) => {
+app.get('/logs', async (req, res) => {
   try {
-    // Los logs se comparten desde bot.js mediante un archivo temporal
-    const logsPath = path.join(__dirname, 'panel-logs.json');
-    fs.readFile(logsPath, 'utf8')
-      .then(data => {
-        const logs = JSON.parse(data);
-        res.json({ logs });
-      })
-      .catch(() => {
-        res.json({ logs: [] });
-      });
+    const logs = await loadPanelLogs(LOGS_PATH);
+    res.json({ logs });
   } catch (error) {
     res.json({ logs: [] });
   }
@@ -253,8 +163,7 @@ app.get('/logs', (req, res) => {
 // POST /logs/clear - Limpiar logs
 app.post('/logs/clear', async (req, res) => {
   try {
-    const logsPath = path.join(__dirname, 'panel-logs.json');
-    await fs.writeFile(logsPath, JSON.stringify([]), 'utf8');
+    await clearPanelLogs(LOGS_PATH);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: 'Error al limpiar logs' });
@@ -265,7 +174,7 @@ app.post('/logs/clear', async (req, res) => {
 app.post('/control', async (req, res) => {
   try {
     const { action } = req.body;
-    const state = await loadBotState();
+    const state = await loadBotState(STATE_PATH, DEFAULT_BOT_STATE);
     
     switch (action) {
       case 'pause':
@@ -286,7 +195,7 @@ app.post('/control', async (req, res) => {
     }
     
     // Guardar inmediatamente cuando es un cambio manual del usuario
-    await saveBotState(state);
+    await saveBotState(STATE_PATH, state);
     res.json({ success: true, state });
   } catch (error) {
     res.status(500).json({ error: 'Error al controlar el bot' });
@@ -367,7 +276,9 @@ app.post('/knowledge/search', async (req, res) => {
     const { query } = req.body;
     if (!query) return res.status(400).json({ error: 'query es obligatorio' });
     const results = await rag.search(query);
-    res.json({ results });
+    // Marca las coincidencias que el modo "hybrid"/"direct" respondería
+    // directo del catálogo sin pasar por la IA (ver rag.HIGH_CONFIDENCE_SCORE)
+    res.json({ results: results.map(r => ({ ...r, highConfidence: r.score >= rag.HIGH_CONFIDENCE_SCORE })) });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

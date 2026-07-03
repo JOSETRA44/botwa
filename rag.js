@@ -29,6 +29,11 @@ const DEFAULT_TOP_K = 3;
 // gemini-embedding-001 da similitudes con piso alto (~0.55 incluso para
 // consultas sin relación); 0.65 separa bien relevante de irrelevante.
 const DEFAULT_MIN_SCORE = 0.65;
+// Umbral de "alta confianza": por encima de esto, el bot puede responder
+// directo desde el catálogo sin pasar por la IA (modos hybrid/direct de
+// bot.js). Más alto que DEFAULT_MIN_SCORE porque aquí la barra es
+// "esto ES la respuesta", no solo "podría ser relevante".
+export const HIGH_CONFIDENCE_SCORE = 0.80;
 
 let kbCache = null; // { entries: [...] }
 

@@ -1,12 +1,21 @@
 import 'dotenv/config';
-import { DisconnectReason, downloadMediaMessage } from '@whiskeysockets/baileys';
+import { DisconnectReason, downloadMediaMessage, jidNormalizedUser } from '@whiskeysockets/baileys';
 import { loginWithQR } from './auth/loginQR.js';
 import { loginWithPhone } from './auth/loginPhone.js';
 import fs from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import sharp from 'sharp';
 import * as rag from './rag.js';
+import { appLogger } from './logger.js';
+import {
+  DEFAULT_CONFIG,
+  loadConfig as loadConfigFile,
+  loadBotState as loadBotStateFile,
+  saveBotState as saveBotStateFile,
+  loadPanelLogs as loadPanelLogsFile,
+  addPanelLog
+} from './shared/store.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,7 +32,7 @@ let botState = {
   messagesSentLastHour: 0,
   lastHourReset: Date.now()
 };
-let lastStateSave = Date.now();
+const lastStateSaveRef = { value: Date.now() };
 const SAVE_INTERVAL = 300000; // Guardar cada 5 minutos
 
 // Sistema de logs para el panel
@@ -32,35 +41,14 @@ const MAX_LOGS = 100; // Máximo 100 logs en memoria
 const LOGS_PATH = path.join(__dirname, 'panel-logs.json');
 
 async function addLog(message, type = 'info') {
-  const timestamp = new Date().toLocaleTimeString('es-ES');
-  const logEntry = { timestamp, message, type };
-  
-  panelLogs.push(logEntry);
-  
-  // Mantener solo los últimos 100 logs
-  if (panelLogs.length > MAX_LOGS) {
-    panelLogs.shift();
-  }
-  
-  // Guardar en archivo para que el panel pueda leerlos
-  try {
-    await fs.writeFile(LOGS_PATH, JSON.stringify(panelLogs, null, 2));
-  } catch (error) {
-    // Ignorar errores de escritura
-  }
-  
+  panelLogs = await addPanelLog(LOGS_PATH, panelLogs, message, type, MAX_LOGS);
   // También mostrar en consola
-  console.log(`[${timestamp}] ${message}`);
+  console.log(`[${new Date().toLocaleTimeString('es-ES')}] ${message}`);
 }
 
 // Cargar logs existentes al iniciar
 async function loadPanelLogs() {
-  try {
-    const data = await fs.readFile(LOGS_PATH, 'utf8');
-    panelLogs = JSON.parse(data);
-  } catch (error) {
-    panelLogs = [];
-  }
+  panelLogs = await loadPanelLogsFile(LOGS_PATH);
 }
 
 // Contador de mensajes por usuario (anti-spam)
@@ -75,78 +63,25 @@ const GROUPING_DELAY = 3000; // 3 segundos para agrupar mensajes
 const MAX_MESSAGES_IN_GROUP = 5; // Máximo 5 mensajes agrupados
 const MAX_QUEUE_SIZE = 10; // Máximo 10 mensajes en cola
 
-// Inyecta las API keys desde variables de entorno (.env) en el objeto de configuración.
-// Las claves nunca viven en config.json para evitar que se filtren en el repositorio.
-function applyEnvSecrets(cfg) {
-  cfg.apiKeyGemini = process.env.GEMINI_API_KEY || cfg.apiKeyGemini || '';
-
-  cfg.unsplash = cfg.unsplash || {};
-  cfg.unsplash.accessKey = process.env.UNSPLASH_ACCESS_KEY || cfg.unsplash.accessKey || '';
-  cfg.unsplash.secretKey = process.env.UNSPLASH_SECRET_KEY || cfg.unsplash.secretKey || '';
-
-  cfg.googleSearch = cfg.googleSearch || {};
-  cfg.googleSearch.apiKey = process.env.GOOGLE_SEARCH_API_KEY || cfg.googleSearch.apiKey || '';
-
-  cfg.geminiVision = cfg.geminiVision || {};
-  cfg.geminiVision.apiKey = process.env.GEMINI_VISION_API_KEY || cfg.geminiVision.apiKey || '';
-
-  cfg.grok = cfg.grok || {};
-  cfg.grok.apiKey = process.env.GROK_API_KEY || cfg.grok.apiKey || '';
-
-  cfg.openai = cfg.openai || {};
-  cfg.openai.apiKey = process.env.OPENAI_API_KEY || cfg.openai.apiKey || '';
-
-  cfg.geminiPapear = cfg.geminiPapear || {};
-  cfg.geminiPapear.apiKey = process.env.GEMINI_PAPEAR_API_KEY || cfg.geminiPapear.apiKey || '';
-
-  return cfg;
-}
-
-// Cargar configuración desde config.json
+// Cargar configuración desde config.json (delega en shared/store.js)
 async function loadConfig() {
-  try {
-    const data = await fs.readFile(CONFIG_PATH, 'utf8');
-    config = applyEnvSecrets(JSON.parse(data));
-    if (botState.logsEnabled) console.log('✅ Configuración cargada correctamente');
-    return config;
-  } catch (error) {
-    console.error('❌ Error al cargar config.json:', error.message);
-    config = applyEnvSecrets({
-      promptGlobal: "Eres un asistente útil y educado.",
-      apiKeyGemini: "",
-      gruposPermitidos: [],
-      gruposExcluidos: [],
-      comandos: {},
-      delayMin: 2000,
-      delayMax: 5000
-    });
-    return config;
-  }
+  config = await loadConfigFile(CONFIG_PATH, DEFAULT_CONFIG);
+  return config;
 }
 
-// Cargar estado del bot
+// Cargar estado del bot (mezcla con el estado en memoria, igual que antes)
 async function loadBotState() {
-  try {
-    const data = await fs.readFile(STATE_PATH, 'utf8');
-    botState = { ...botState, ...JSON.parse(data) };
-  } catch (error) {
-    // Si no existe, usar valores por defecto
-  }
+  botState = { ...botState, ...(await loadBotStateFile(STATE_PATH, botState)) };
 }
 
-// Guardar estado del bot
+// Guardar estado del bot (con el mismo throttle de 5 min de siempre,
+// ahora como parámetro explícito de shared/store.js en vez de lógica propia)
 async function saveBotState(force = false) {
-  try {
-    const now = Date.now();
-    // Guardar solo si han pasado 5 minutos O si es forzado (cambio manual)
-    if (force || now - lastStateSave > SAVE_INTERVAL) {
-      await fs.writeFile(STATE_PATH, JSON.stringify(botState, null, 2));
-      lastStateSave = now;
-      if (botState.logsEnabled) console.log('💾 Estado guardado');
-    }
-  } catch (error) {
-    console.error('Error al guardar estado:', error.message);
-  }
+  await saveBotStateFile(STATE_PATH, botState, {
+    force,
+    throttleMs: SAVE_INTERVAL,
+    lastSaveRef: lastStateSaveRef
+  });
 }
 
 // Delay aleatorio para simular escritura humana
@@ -330,6 +265,7 @@ async function processAIResponseWithFormulas(text, sock, remoteJid, quotedMsg) {
     
   } catch (error) {
     console.error('❌ Error al procesar fórmulas:', error.message);
+    appLogger.error({ err: error }, 'Error al procesar fórmulas / enviar respuesta');
     // Si falla todo, enviar texto original
     await sock.sendMessage(remoteJid, { text }, { quoted: quotedMsg });
   }
@@ -470,17 +406,12 @@ async function processUserQueue(userId, sock) {
     const delayMax = config.delayMax || 5000;
     await randomDelay(delayMin, delayMax);
     
-    // Mostrar estado "escribiendo..." mientras consulta Gemini
+    // Mostrar estado "escribiendo..." mientras se decide/consulta la respuesta
     const typingPromise = simulateTyping(sock, remoteJid, 0);
 
-    // Buscar contexto en la base de conocimiento (RAG) del negocio
-    const ragResult = await getRagContext(combinedMessage);
-    if (ragResult.results.length > 0 && botState.logsEnabled) {
-      addLog(`📚 RAG: ${ragResult.results.length} coincidencia(s) para la consulta`, 'info');
-    }
-
-    // Respuesta con Gemini citando el último mensaje
-    const respuesta = await callGemini(combinedMessage, ragResult.context);
+    // Decide (según config.responseMode) si responde directo del catálogo,
+    // con IA, o una mezcla — ver answerQuery()
+    const { text: respuesta, images: ragImages } = await answerQuery(combinedMessage, answerQueryDeps());
     const lastMsg = messagesToProcess[messagesToProcess.length - 1].msg; // Último mensaje para citar
 
     await typingPromise;
@@ -489,8 +420,8 @@ async function processUserQueue(userId, sock) {
     await processAIResponseWithFormulas(respuesta, sock, remoteJid, lastMsg);
 
     // Si alguna coincidencia del catálogo tiene imagen, enviarla también
-    if (ragResult.images.length > 0) {
-      await sendRagImages(sock, remoteJid, ragResult.images, lastMsg);
+    if (ragImages.length > 0) {
+      await sendRagImages(sock, remoteJid, ragImages, lastMsg);
     }
     
     incrementMessageCount();
@@ -501,6 +432,7 @@ async function processUserQueue(userId, sock) {
     
   } catch (error) {
     console.error('❌ Error al procesar cola:', error.message);
+    appLogger.error({ err: error }, 'Error al procesar cola de usuario');
   } finally {
     // Marcar como no procesando
     queue.processing = false;
@@ -613,41 +545,62 @@ async function searchUnsplashImage(query) {
 // varios usuarios escribiendo a la vez provocan errores 429 que antes
 // se mostraban como "verifica tu API Key" (mensaje engañoso: el
 // problema es de cupo, no de autenticación).
-const GEMINI_RPM_LIMIT = 8; // margen de seguridad bajo el límite real de 10 RPM
-const geminiCallTimestamps = [];
+export class GeminiRateLimitError extends Error {}
 
-async function waitForGeminiSlot() {
-  const now = Date.now();
-  while (geminiCallTimestamps.length && now - geminiCallTimestamps[0] > 60000) {
-    geminiCallTimestamps.shift();
-  }
-  if (geminiCallTimestamps.length >= GEMINI_RPM_LIMIT) {
-    const waitMs = 60000 - (now - geminiCallTimestamps[0]) + 100;
-    if (botState.logsEnabled) addLog(`⏳ Límite de Gemini alcanzado, esperando ${Math.ceil(waitMs / 1000)}s...`, 'warning');
-    await new Promise((resolve) => setTimeout(resolve, waitMs));
-    return waitForGeminiSlot();
-  }
-  geminiCallTimestamps.push(Date.now());
-}
+// Fábrica del limitador de tasa para Gemini (generateContent), extraída como
+// función independiente (recibe sus dependencias, no lee globals del módulo)
+// para poder probarla con node:test sin tocar la sesión real de WhatsApp.
+// Se instancia una sola vez más abajo con los valores reales de producción.
+export function makeGeminiLimiter({
+  rpmLimit = 8, addLog, isLogsEnabled, fetchImpl = fetch, now = Date.now,
+  sleepImpl = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+} = {}) {
+  const callTimestamps = [];
 
-class GeminiRateLimitError extends Error {}
-
-// fetch con reintento automático ante 429 (respeta Retry-After si Google lo envía)
-async function fetchGeminiWithRetry(url, options, maxRetries = 2) {
-  await waitForGeminiSlot();
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const response = await fetch(url, options);
-    if (response.status !== 429) return response;
-
-    if (attempt === maxRetries) {
-      throw new GeminiRateLimitError('Límite de solicitudes de Gemini alcanzado (429)');
+  async function waitForSlot() {
+    const t = now();
+    while (callTimestamps.length && t - callTimestamps[0] > 60000) {
+      callTimestamps.shift();
     }
-    const retryAfter = response.headers.get('retry-after');
-    const backoffMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : 1500 * 2 ** attempt;
-    console.warn(`⚠️ Gemini 429 (intento ${attempt + 1}/${maxRetries}), reintentando en ${backoffMs}ms`);
-    await new Promise((resolve) => setTimeout(resolve, backoffMs));
+    if (callTimestamps.length >= rpmLimit) {
+      const waitMs = 60000 - (t - callTimestamps[0]) + 100;
+      if (isLogsEnabled?.()) addLog?.(`⏳ Límite de Gemini alcanzado, esperando ${Math.ceil(waitMs / 1000)}s...`, 'warning');
+      await sleepImpl(waitMs);
+      return waitForSlot();
+    }
+    callTimestamps.push(now());
   }
+
+  // fetch con reintento automático ante 429 (respeta Retry-After si Google lo envía)
+  async function fetchWithRetry(url, options, maxRetries = 2) {
+    await waitForSlot();
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const response = await fetchImpl(url, options);
+      if (response.status !== 429) return response;
+
+      if (attempt === maxRetries) {
+        throw new GeminiRateLimitError('Límite de solicitudes de Gemini alcanzado (429)');
+      }
+      const retryAfter = response.headers.get('retry-after');
+      const backoffMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : 1500 * 2 ** attempt;
+      console.warn(`⚠️ Gemini 429 (intento ${attempt + 1}/${maxRetries}), reintentando en ${backoffMs}ms`);
+      await sleepImpl(backoffMs);
+    }
+  }
+
+  return { waitForSlot, fetchWithRetry };
 }
+
+// Margen de seguridad bajo el límite real de 10 RPM del tier gratuito de
+// gemini-2.5-flash (Google lo recortó ~80% en diciembre de 2025); ese cupo
+// se comparte entre /pregunta, las respuestas automáticas, /analizar y
+// /papear porque todas usan el mismo modelo.
+const geminiLimiter = makeGeminiLimiter({
+  rpmLimit: 8,
+  addLog,
+  isLogsEnabled: () => botState.logsEnabled,
+  fetchImpl: fetch
+});
 
 // Analizar imagen con Gemini Vision
 async function analyzeImageWithGemini(imageBuffer, question = '') {
@@ -665,7 +618,7 @@ async function analyzeImageWithGemini(imageBuffer, question = '') {
     // Prompt por defecto o personalizado
     const prompt = question || 'Describe esta imagen en detalle. Menciona objetos, colores, personas, texto visible, y cualquier detalle relevante.';
     
-    const response = await fetchGeminiWithRetry(
+    const response = await geminiLimiter.fetchWithRetry(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
@@ -813,53 +766,70 @@ async function callChatGPT(userMessage) {
   }
 }
 
-// Llamar a la API de Gemini
+// Núcleo de la llamada a Gemini: lanza en vez de devolver strings de error,
+// para que answerQuery() (modo hybrid/direct) pueda distinguir éxito de
+// fallo y decidir si cae al catálogo directo. callGemini() más abajo
+// conserva el comportamiento público de siempre envolviendo esto.
 // extraContext: bloque opcional de la base de conocimiento (RAG) que se
 // antepone al mensaje para que la IA responda con datos reales del negocio.
-async function callGemini(userMessage, extraContext = '') {
+async function callGeminiRaw(userMessage, extraContext = '') {
   if (!config.apiKeyGemini || config.apiKeyGemini.trim() === '') {
-    return 'La API Key de Gemini no está configurada. Por favor, configúrala en el panel web.';
+    throw new Error('GEMINI_NOT_CONFIGURED');
   }
 
-  try {
-    const contextBlock = extraContext ? `\n\n${extraContext}\n` : '';
-    const prompt = `${config.promptGlobal}${contextBlock}\n\nUsuario: ${userMessage}`;
-    
-    // Usar gemini-1.5-flash (más rápido y económico) o gemini-1.5-pro
-    const model = config.geminiModel || 'gemini-1.5-flash';
-    
-    const response = await fetchGeminiWithRetry(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.apiKeyGemini}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: prompt
-            }]
+  const contextBlock = extraContext ? `\n\n${extraContext}\n` : '';
+  const prompt = `${config.promptGlobal}${contextBlock}\n\nUsuario: ${userMessage}`;
+
+  // Usar gemini-1.5-flash (más rápido y económico) o gemini-1.5-pro
+  const model = config.geminiModel || 'gemini-1.5-flash';
+
+  const response = await geminiLimiter.fetchWithRetry(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.apiKeyGemini}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: prompt
           }]
-        })
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Error de API: ${response.status}`);
+        }]
+      })
     }
+  );
+  // fetchGeminiWithRetry ya lanza GeminiRateLimitError si agota reintentos ante 429
 
-    const data = await response.json();
+  if (!response.ok) {
+    throw new Error(`Error de API: ${response.status}`);
+  }
 
-    if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-      return data.candidates[0].content.parts[0].text;
-    }
+  const data = await response.json();
 
-    return 'No pude generar una respuesta. Intenta de nuevo.';
+  if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+    return data.candidates[0].content.parts[0].text;
+  }
+
+  throw new Error('EMPTY_RESPONSE');
+}
+
+// Llamar a la API de Gemini (versión pública: nunca lanza, siempre
+// devuelve un string enviable al usuario). Usada por el modo "ai" y por
+// /resumen, que siempre requieren una respuesta de IA.
+async function callGemini(userMessage, extraContext = '') {
+  try {
+    return await callGeminiRaw(userMessage, extraContext);
   } catch (error) {
     console.error('❌ Error al llamar a Gemini:', error.message);
+    if (error.message === 'GEMINI_NOT_CONFIGURED') {
+      return 'La API Key de Gemini no está configurada. Por favor, configúrala en el panel web.';
+    }
     if (error instanceof GeminiRateLimitError) {
       return '⏳ Estoy recibiendo muchos mensajes ahora mismo. Espera un momento y vuelve a intentar.';
+    }
+    if (error.message === 'EMPTY_RESPONSE') {
+      return 'No pude generar una respuesta. Intenta de nuevo.';
     }
     return 'Error al conectar con Gemini. Verifica tu API Key.';
   }
@@ -889,6 +859,111 @@ async function sendRagImages(sock, remoteJid, images, quotedMsg) {
       console.error('⚠️ No se pudo enviar imagen de catálogo:', error.message);
     }
   }
+}
+
+// ============================================================
+// Respuesta directa desde el catálogo (sin IA)
+// ============================================================
+// Formatea resultados de rag.search()/rag.buildContext() como respuesta
+// enviable sin pasar por Gemini. Usado por /catalogo y por answerQuery()
+// en los modos "hybrid"/"direct".
+const KB_ANSWER_INTRO_COMMAND = '📚 Esto encontré:';
+const KB_ANSWER_INTRO_CHAT = '📋 Esto es lo que tengo sobre eso:';
+
+function formatKbAnswer(results, intro = KB_ANSWER_INTRO_CHAT) {
+  const texto = results.map(r => `*${r.title}*\n${r.text}`).join('\n\n');
+  return `${intro}\n\n${texto}`;
+}
+
+function kbResultsToImages(results) {
+  return results
+    .filter(r => r.imageFile)
+    .map(r => ({ title: r.title, imagePath: rag.getImagePath(r.imageFile) }));
+}
+
+// ============================================================
+// Modo de respuesta (config.responseMode): "ai" | "hybrid" | "direct"
+// ============================================================
+// Punto único de decisión para respuestas automáticas y /pregunta: decide
+// si contestar directo desde el catálogo, con IA, o una mezcla. Nunca
+// lanza — siempre devuelve algo enviable al cliente, incluso sin ninguna
+// API de IA configurada o si Gemini falla por cualquier motivo (incluido
+// el límite de cuota 429).
+const VALID_RESPONSE_MODES = new Set(['ai', 'hybrid', 'direct']);
+const KB_NO_MATCH_FALLBACK =
+  '🤔 No encontré información exacta sobre eso en mi catálogo.\n\n' +
+  '💡 Prueba con */catalogo* para ver todo lo disponible, o escribe */menu* para ver las opciones.';
+
+// Recibe sus dependencias como objeto en vez de leer los globals del módulo
+// (config/botState/addLog/callGemini/callGeminiRaw/getRagContext) — así se
+// puede probar con node:test sin tocar la sesión real de WhatsApp. El
+// llamador de producción (más abajo) le pasa exactamente esos globals, así
+// que el comportamiento no cambia una sola línea.
+export async function answerQuery(query, deps) {
+  const {
+    config, botState, addLog,
+    getRagContext, callGemini, callGeminiRaw,
+    ragHighConfidenceScore, GeminiRateLimitError: RateLimitErrorClass
+  } = deps;
+
+  const mode = VALID_RESPONSE_MODES.has(config.responseMode) ? config.responseMode : 'hybrid';
+  const ragResult = await getRagContext(query);
+  const hasMatch = ragResult.results.length > 0;
+  const isHighConfidence = hasMatch && ragResult.results[0].score >= ragHighConfidenceScore;
+
+  if (hasMatch && botState.logsEnabled) {
+    addLog(`📚 RAG: ${ragResult.results.length} coincidencia(s) (modo: ${mode}${isHighConfidence ? ', alta confianza' : ''})`, 'info');
+  }
+
+  // ---- modo "ai": comportamiento de siempre, sin cambios ----
+  if (mode === 'ai') {
+    return { text: await callGemini(query, ragResult.context), images: ragResult.images };
+  }
+
+  // ---- modo "direct": nunca llama a la IA ----
+  if (mode === 'direct') {
+    if (hasMatch) return { text: formatKbAnswer(ragResult.results), images: kbResultsToImages(ragResult.results) };
+    return { text: KB_NO_MATCH_FALLBACK, images: [] };
+  }
+
+  // ---- modo "hybrid" (por defecto) ----
+  if (isHighConfidence) {
+    // Coincidencia exacta del catálogo: responder directo, sin gastar cuota de IA.
+    return { text: formatKbAnswer(ragResult.results), images: kbResultsToImages(ragResult.results) };
+  }
+
+  // Sin coincidencia fuerte (charla general o coincidencia débil): intentar
+  // IA solo si hay una key configurada, si no, ir directo al catálogo.
+  if (!config.apiKeyGemini || config.apiKeyGemini.trim() === '') {
+    if (hasMatch) return { text: formatKbAnswer(ragResult.results), images: kbResultsToImages(ragResult.results) };
+    return { text: KB_NO_MATCH_FALLBACK, images: [] };
+  }
+
+  try {
+    const aiText = await callGeminiRaw(query, ragResult.context);
+    return { text: aiText, images: ragResult.images };
+  } catch (error) {
+    // Cualquier fallo de la IA cae al catálogo si hay algo que mostrar;
+    // el cliente nunca debe ver un mensaje de error crudo.
+    if (botState.logsEnabled) {
+      addLog(error instanceof RateLimitErrorClass
+        ? '⏳ Gemini con límite alcanzado, respondiendo con el catálogo directo'
+        : `⚠️ Gemini no disponible (${error.message}), respondiendo con el catálogo directo`, 'warning');
+    }
+    if (hasMatch) return { text: formatKbAnswer(ragResult.results), images: kbResultsToImages(ragResult.results) };
+    return { text: KB_NO_MATCH_FALLBACK, images: [] };
+  }
+}
+
+// Dependencias reales de producción, pasadas una sola vez desde cada punto
+// de llamada (processUserQueue y /pregunta) en vez de repetir el objeto.
+function answerQueryDeps() {
+  return {
+    config, botState, addLog,
+    getRagContext, callGemini, callGeminiRaw,
+    ragHighConfidenceScore: rag.HIGH_CONFIDENCE_SCORE,
+    GeminiRateLimitError
+  };
 }
 
 // Llamar a Gemini para PAPEAR (sin censura, modo brutal)
@@ -941,7 +1016,7 @@ async function callGeminiPapear(targetMessage, argumentos = '') {
     
     console.log('📤 Enviando request...');
     
-    const response = await fetchGeminiWithRetry(apiUrl, {
+    const response = await geminiLimiter.fetchWithRetry(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -1460,20 +1535,20 @@ async function processCommand(command, message, sock, remoteJid, msg = null) {
       return;
     }
     
-    // Mostrar estado "escribiendo..." mientras consulta la IA
+    // Mostrar estado "escribiendo..." mientras se decide/consulta la respuesta
     const typingPromise = simulateTyping(sock, remoteJid, 0);
 
-    // Inyectar contexto del negocio (RAG) si hay coincidencias
-    const ragResult = await getRagContext(texto);
-    const respuesta = await callGemini(texto, ragResult.context);
+    // Igual que las respuestas automáticas: según config.responseMode,
+    // responde directo del catálogo, con IA, o una mezcla (ver answerQuery())
+    const { text: respuesta, images: preguntaImages } = await answerQuery(texto, answerQueryDeps());
 
     await typingPromise;
 
     // Procesar respuesta con soporte para fórmulas LaTeX
     await processAIResponseWithFormulas(respuesta, sock, remoteJid, msg);
 
-    if (ragResult.images.length > 0) {
-      await sendRagImages(sock, remoteJid, ragResult.images, msg);
+    if (preguntaImages.length > 0) {
+      await sendRagImages(sock, remoteJid, preguntaImages, msg);
     }
     return;
   }
@@ -1506,13 +1581,10 @@ async function processCommand(command, message, sock, remoteJid, msg = null) {
       }
 
       // Responder con el texto de las coincidencias
-      const texto = resultados.map(r => `*${r.title}*\n${r.text}`).join('\n\n');
-      await sock.sendMessage(remoteJid, { text: `📚 Esto encontré:\n\n${texto}` }, { quoted: msg });
+      await sock.sendMessage(remoteJid, { text: formatKbAnswer(resultados, KB_ANSWER_INTRO_COMMAND) }, { quoted: msg });
 
       // Enviar imágenes de las coincidencias que tengan foto
-      const imagenes = resultados
-        .filter(r => r.imageFile)
-        .map(r => ({ title: r.title, imagePath: rag.getImagePath(r.imageFile) }));
+      const imagenes = kbResultsToImages(resultados);
       if (imagenes.length > 0) {
         await sendRagImages(sock, remoteJid, imagenes, msg);
       }
@@ -1626,14 +1698,16 @@ async function startBot() {
     await loginWithPhone(
       (socket) => setupBotHandlers(socket),
       (code) => addLog(`🔑 Código de emparejamiento: ${code}`, 'info'),
-      () => addLog('❌ Sesión cerrada', 'error')
+      () => addLog('❌ Sesión cerrada', 'error'),
+      (reason) => addLog(`♻️ Reconectando... (código: ${reason ?? 'desconocido'})`, 'warning')
     );
   } else {
     // Autenticación con QR (por defecto)
     await loginWithQR(
       (socket) => setupBotHandlers(socket),
       () => addLog('📱 QR generado - Escanea con WhatsApp', 'info'),
-      () => addLog('❌ Sesión cerrada', 'error')
+      () => addLog('❌ Sesión cerrada', 'error'),
+      (reason) => addLog(`♻️ Reconectando... (código: ${reason ?? 'desconocido'})`, 'warning')
     );
   }
 }
@@ -1661,6 +1735,14 @@ function setupBotHandlers(sock) {
       }
       
       const remoteJid = msg.key.remoteJid;
+      // Tripwire barato (no una corrección): Baileys ya maneja @lid
+      // internamente y aquí solo se deja evidencia si alguna vez el JID
+      // normalizado difiere del original — el envío sigue yendo al JID
+      // original exactamente igual que antes.
+      const normalizedJid = jidNormalizedUser(remoteJid);
+      if (normalizedJid !== remoteJid) {
+        addLog(`⚠️ JID no normalizado: original=${remoteJid} normalizado=${normalizedJid}`, 'warning');
+      }
       const isGroup = remoteJid.endsWith('@g.us');
       const messageText = msg.message.conversation || 
                          msg.message.extendedTextMessage?.text || '';
@@ -1827,6 +1909,26 @@ function setupBotHandlers(sock) {
       
     } catch (error) {
       console.error('❌ Error al procesar mensaje:', error.message);
+      appLogger.error({ err: error }, 'Error al procesar mensaje entrante');
+    }
+  });
+
+  // Visibilidad de entrega: sock.sendMessage() solo confirma que WhatsApp
+  // aceptó el mensaje cifrado, nunca que el destinatario lo recibió o vio.
+  // Sin esto, "el log dice enviado pero al cliente no le llegó nada" es
+  // indiagnosticable. No se persiste historial: key.id solo se usa truncado
+  // como etiqueta del log.
+  sock.ev.on('messages.update', (updates) => {
+    for (const { key, update } of updates) {
+      if (!key.fromMe || update.status === undefined) continue;
+      const preview = key.id ? key.id.slice(-8) : '???';
+      if (update.status === 0 /* ERROR */) {
+        addLog(`❌ Entrega fallida (msg ${preview} → ${key.remoteJid}): status ERROR`, 'error');
+      } else if (update.status === 3 /* DELIVERY_ACK */ && botState.logsEnabled) {
+        addLog(`📬 Entregado (msg ${preview} → ${key.remoteJid})`, 'info');
+      } else if (update.status === 4 /* READ */ && botState.logsEnabled) {
+        addLog(`👁️ Leído (msg ${preview} → ${key.remoteJid})`, 'info');
+      }
     }
   });
 }
@@ -1834,12 +1936,19 @@ function setupBotHandlers(sock) {
 // Manejo de errores globales
 process.on('uncaughtException', (error) => {
   console.error('❌ Error no capturado:', error.message);
+  appLogger.error({ err: error }, 'uncaughtException');
 });
 
 process.on('unhandledRejection', (error) => {
   console.error('❌ Promesa rechazada:', error.message);
+  appLogger.error({ err: error }, 'unhandledRejection');
 });
 
-// Iniciar el bot
-console.log('🚀 Iniciando WhatsApp Bot...');
-startBot();
+// Iniciar el bot solo cuando bot.js se ejecuta directamente (node bot.js),
+// no cuando otro módulo lo importa (ej. los tests de node:test) — así,
+// importar answerQuery/makeGeminiLimiter para probarlos no dispara una
+// conexión real a WhatsApp.
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  console.log('🚀 Iniciando WhatsApp Bot...');
+  startBot();
+}

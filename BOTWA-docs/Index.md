@@ -15,7 +15,7 @@ Documentación del bot de WhatsApp (Baileys + Gemini/Grok/ChatGPT). Para la conf
 - [[Bot 24-7 en Laptop]]
 
 ## ⚡ Comandos
-- [[Comando Catalogo (RAG)]] ⭐ nuevo
+- [[Comando Catalogo (RAG)]]
 - [[Comando Elon (Grok)]]
 - [[Comando Sora (ChatGPT)]]
 - [[Comando gg (Unsplash)]]
@@ -24,7 +24,9 @@ Documentación del bot de WhatsApp (Baileys + Gemini/Grok/ChatGPT). Para la conf
 - [[Comando r y Formulas como Sticker]]
 
 ## ⚙️ Sistema
-- [[Panel Web - Arquitectura y Diseño Editorial]] ⭐ nuevo
+- [[Reestructuracion Etapa 1 - Modulo Compartido y Pruebas]] ⭐ nuevo
+- [[Modo de Respuesta Hibrido]]
+- [[Panel Web - Arquitectura y Diseño Editorial]]
 - [[Sistema RAG - Base de Conocimiento]]
 - [[Sistema de Cola de Mensajes]]
 - [[Pruebas del Sistema de Cola]]
@@ -35,7 +37,8 @@ Documentación del bot de WhatsApp (Baileys + Gemini/Grok/ChatGPT). Para la conf
 - [[Panel Web - Nuevo Diseño]] (histórico)
 
 ## 🔧 Fixes
-- [[Fix Error 429 Gemini - Limite de Cuota]] ⭐ nuevo
+- [[Diagnostico de Entrega de Mensajes]] ⭐ nuevo
+- [[Fix Error 429 Gemini - Limite de Cuota]]
 - [[Diagnostico de Codigo de Emparejamiento]]
 - [[Fix Papear - Debug]]
 - [[Fix Papear - Definitivo]]

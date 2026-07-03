@@ -1,7 +1,7 @@
 // Formulario de configuración del bot (prompt, keys, grupos, comandos, delays).
 
 import { api } from './api.js';
-import { qs } from './dom.js';
+import { qs, qsa } from './dom.js';
 import { showAlert } from './alerts.js';
 
 function parseLines(value) {
@@ -22,6 +22,14 @@ function formatKeyValue(obj = {}) {
   return Object.entries(obj).map(([key, val]) => `${key}=${val}`).join('\n');
 }
 
+// Refleja en las tarjetas de modo cuál radio está seleccionado (borde +
+// fondo), ya que el estado visual no viene gratis con <input type="radio">.
+function syncChoiceCardStyles() {
+  qsa('.choice-card').forEach((card) => {
+    card.classList.toggle('is-selected', card.querySelector('input').checked);
+  });
+}
+
 async function loadConfig() {
   try {
     const config = await api.getConfig();
@@ -29,6 +37,11 @@ async function loadConfig() {
     qs('#promptGlobal').value = config.promptGlobal || '';
     qs('#apiKeyGemini').value = config.apiKeyGemini || '';
     qs('#apiKeyGrok').value = config.grok?.apiKey || '';
+
+    const mode = config.responseMode || 'hybrid';
+    const modeRadio = qs(`input[name="responseMode"][value="${mode}"]`);
+    if (modeRadio) modeRadio.checked = true;
+    syncChoiceCardStyles();
     qs('#gruposPermitidos').value = (config.gruposPermitidos || []).join('\n');
     qs('#gruposExcluidos').value = (config.gruposExcluidos || []).join('\n');
     qs('#delayMin').value = config.delayMin || 2000;
@@ -47,6 +60,7 @@ async function saveConfig(event) {
     promptGlobal: qs('#promptGlobal').value,
     apiKeyGemini: qs('#apiKeyGemini').value,
     apiKeyGrok: qs('#apiKeyGrok').value,
+    responseMode: qs('input[name="responseMode"]:checked')?.value || 'hybrid',
     gruposPermitidos: parseLines(qs('#gruposPermitidos').value),
     gruposExcluidos: parseLines(qs('#gruposExcluidos').value),
     comandos: parseKeyValueLines(qs('#comandos').value),
@@ -69,5 +83,8 @@ async function saveConfig(event) {
 
 export function initConfig() {
   qs('#configForm').addEventListener('submit', saveConfig);
+  qsa('input[name="responseMode"]').forEach((radio) => {
+    radio.addEventListener('change', syncChoiceCardStyles);
+  });
   loadConfig();
 }
