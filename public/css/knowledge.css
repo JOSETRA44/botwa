@@ -1,0 +1,103 @@
+/* ============================================================
+   Base de Conocimiento (RAG)
+   ============================================================ */
+
+.kb-entry {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin-bottom: var(--space-3);
+  background: var(--surface);
+  transition: border-color 0.15s var(--ease);
+}
+
+.kb-entry:hover {
+  border-color: var(--brand);
+}
+
+.kb-entry-thumb,
+.kb-entry-thumb-placeholder {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.kb-entry-thumb {
+  object-fit: cover;
+  background: var(--paper-alt);
+}
+
+.kb-entry-thumb-placeholder {
+  background: var(--paper-alt);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  color: var(--ink-faint);
+}
+
+.kb-entry-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.kb-entry-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.kb-entry-text {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-top: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.kb-tag {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+  margin-right: 4px;
+  margin-top: 6px;
+}
+
+.kb-entry-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.kb-search-result {
+  padding: var(--space-3);
+  border-left: 3px solid var(--accent);
+  background: var(--paper-alt);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  margin-bottom: var(--space-2);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.kb-score {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--accent-dark);
+}
+
+.kb-empty {
+  text-align: center;
+  padding: var(--space-5);
+  color: var(--ink-faint);
+  font-size: 13.5px;
+}

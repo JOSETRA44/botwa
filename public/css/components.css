@@ -1,0 +1,328 @@
+/* ============================================================
+   Componentes reutilizables: tarjetas, botones, badges, formularios
+   ============================================================ */
+
+/* ---------- Tarjeta ---------- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+
+.card-title {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 600;
+  margin-bottom: var(--space-4);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.card-note {
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  line-height: 1.55;
+  margin-bottom: var(--space-4);
+}
+
+.card-subtitle {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  margin: var(--space-5) 0 var(--space-3);
+  color: var(--ink);
+}
+
+/* ---------- Badge de estado ---------- */
+
+.status-badge {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-active {
+  background: var(--leaf-soft);
+  color: var(--brand-dark);
+}
+
+.status-active .status-dot {
+  background: var(--leaf);
+  box-shadow: 0 0 0 3px rgba(63, 125, 83, 0.22);
+  animation: pulse 2s infinite;
+}
+
+.status-paused {
+  background: var(--gold-soft);
+  color: #7a5716;
+}
+
+.status-paused .status-dot {
+  background: var(--gold);
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(63, 125, 83, 0.22); }
+  50% { box-shadow: 0 0 0 6px rgba(63, 125, 83, 0.1); }
+}
+
+/* ---------- Botones ---------- */
+
+.btn-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.btn {
+  padding: 10px 18px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s var(--ease), box-shadow 0.15s var(--ease), opacity 0.15s var(--ease);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  line-height: 1;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--brand);
+  color: var(--paper);
+}
+
+.btn-accent {
+  background: var(--accent);
+  color: #fff8f0;
+}
+
+.btn-secondary {
+  background: var(--paper-alt);
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+.btn-warning {
+  background: var(--gold-soft);
+  color: #7a5716;
+  border-color: #e6cf98;
+}
+
+.btn-success {
+  background: var(--leaf-soft);
+  color: var(--brand-dark);
+  border-color: #bcdcc4;
+}
+
+.btn-danger {
+  background: var(--brick-soft);
+  color: var(--brick);
+  border-color: #e6bcb2;
+}
+
+.btn-sm {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.btn-block {
+  width: 100%;
+  justify-content: center;
+  padding: 14px;
+  font-size: 15px;
+}
+
+/* ---------- Estadística ---------- */
+
+.stat {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: var(--space-4);
+  background: var(--paper-alt);
+  border-radius: var(--radius);
+  margin-top: var(--space-4);
+}
+
+.stat-label {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--brand-dark);
+}
+
+.stat-value small {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-faint);
+}
+
+/* ---------- Formularios ---------- */
+
+.form-group {
+  margin-bottom: var(--space-5);
+}
+
+.form-label {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+  margin-bottom: var(--space-2);
+  color: var(--ink);
+}
+
+.form-input,
+.form-textarea {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-family: var(--font-body);
+  background: var(--surface);
+  color: var(--ink);
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 80px;
+  line-height: 1.5;
+}
+
+.form-hint {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-faint);
+  margin-top: var(--space-2);
+  line-height: 1.5;
+}
+
+.form-hint a {
+  color: var(--accent-dark);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+
+.form-hint a:hover {
+  color: var(--accent);
+}
+
+/* ---------- Alertas / toasts ---------- */
+
+#alertContainer {
+  position: fixed;
+  top: var(--space-5);
+  right: var(--space-5);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: min(360px, calc(100vw - 32px));
+}
+
+.alert {
+  padding: var(--space-4);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: 13.5px;
+  font-weight: 500;
+  box-shadow: var(--shadow);
+  animation: slideIn 0.25s var(--ease);
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.alert-success {
+  background: var(--brand-dark);
+  color: var(--paper);
+}
+
+.alert-danger {
+  background: var(--brick);
+  color: #fff5f2;
+}
+
+.alert-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.alert-close:hover {
+  opacity: 1;
+}
+
+/* ---------- Carga ---------- */
+
+.loading {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

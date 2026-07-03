@@ -4,7 +4,10 @@ tags:
   - sistema
 ---
 
-# 🎨 Nuevo Diseño del Panel Web
+> [!warning] Superado
+> Este diseño (Bootstrap-like, fondo morado degradado) fue **reemplazado** por la arquitectura modular descrita en [[Panel Web - Arquitectura y Diseño Editorial]]. Se conserva esta nota como registro histórico del cambio anterior.
+
+# 🎨 Nuevo Diseño del Panel Web (histórico)
 
 ## ✅ **IMPLEMENTADO: Diseño Minimalista y Profesional**
 

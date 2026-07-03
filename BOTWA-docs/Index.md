@@ -24,14 +24,15 @@ Documentación del bot de WhatsApp (Baileys + Gemini/Grok/ChatGPT). Para la conf
 - [[Comando r y Formulas como Sticker]]
 
 ## ⚙️ Sistema
-- [[Sistema RAG - Base de Conocimiento]] ⭐ nuevo
+- [[Panel Web - Arquitectura y Diseño Editorial]] ⭐ nuevo
+- [[Sistema RAG - Base de Conocimiento]]
 - [[Sistema de Cola de Mensajes]]
 - [[Pruebas del Sistema de Cola]]
 - [[Indicador Escribiendo]]
 - [[Mejoras de UX]]
 - [[Soporte de Formulas Matematicas]]
 - [[SafeSearch Desactivado]]
-- [[Panel Web - Nuevo Diseño]]
+- [[Panel Web - Nuevo Diseño]] (histórico)
 
 ## 🔧 Fixes
 - [[Diagnostico de Codigo de Emparejamiento]]

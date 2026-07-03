@@ -1,1041 +1,208 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatsApp Bot - Panel</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --primary: #25D366;
-            --primary-dark: #128C7E;
-            --secondary: #34B7F1;
-            --dark: #1a1a1a;
-            --dark-light: #2a2a2a;
-            --gray: #6b7280;
-            --gray-light: #f3f4f6;
-            --white: #ffffff;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --radius: 12px;
-            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-            color: var(--dark);
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        /* Header */
-        .header {
-            background: var(--white);
-            border-radius: var(--radius);
-            padding: 24px 32px;
-            margin-bottom: 24px;
-            box-shadow: var(--shadow);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 16px;
-        }
-
-        .header-title {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .header-title h1 {
-            font-size: 24px;
-            font-weight: 700;
-            color: var(--dark);
-        }
-
-        .bot-icon {
-            font-size: 32px;
-        }
-
-        .status-badge {
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 14px;
-            font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .status-active {
-            background: #d1fae5;
-            color: var(--success);
-        }
-
-        .status-paused {
-            background: #fef3c7;
-            color: var(--warning);
-        }
-
-        /* Grid Layout */
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 24px;
-            margin-bottom: 24px;
-        }
-
-        /* Card */
-        .card {
-            background: var(--white);
-            border-radius: var(--radius);
-            padding: 24px;
-            box-shadow: var(--shadow);
-        }
-
-        .card-title {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 16px;
-            color: var(--dark);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        /* Buttons */
-        .btn-group {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow);
-        }
-
-        .btn-primary {
-            background: var(--primary);
-            color: var(--white);
-        }
-
-        .btn-secondary {
-            background: var(--gray-light);
-            color: var(--dark);
-        }
-
-        .btn-warning {
-            background: var(--warning);
-            color: var(--white);
-        }
-
-        .btn-success {
-            background: var(--success);
-            color: var(--white);
-        }
-
-        .btn-info {
-            background: var(--secondary);
-            color: var(--white);
-        }
-
-        .btn-danger {
-            background: var(--danger);
-            color: var(--white);
-        }
-
-        /* Stats */
-        .stats {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 16px;
-            background: var(--gray-light);
-            border-radius: 8px;
-            margin-top: 16px;
-        }
-
-        .stats-label {
-            font-size: 14px;
-            color: var(--gray);
-        }
-
-        .stats-value {
-            font-size: 24px;
-            font-weight: 700;
-            color: var(--dark);
-        }
-
-        /* Logs */
-        .logs-container {
-            background: var(--dark);
-            border-radius: 8px;
-            padding: 16px;
-            height: 300px;
-            overflow-y: auto;
-            font-family: 'Courier New', monospace;
-            font-size: 13px;
-            line-height: 1.6;
-        }
-
-        .logs-container::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .logs-container::-webkit-scrollbar-track {
-            background: var(--dark-light);
-            border-radius: 4px;
-        }
-
-        .logs-container::-webkit-scrollbar-thumb {
-            background: var(--gray);
-            border-radius: 4px;
-        }
-
-        .log-entry {
-            margin-bottom: 4px;
-        }
-
-        .log-info { color: #60a5fa; }
-        .log-success { color: #34d399; }
-        .log-warning { color: #fbbf24; }
-        .log-error { color: #f87171; }
-        .log-muted { color: var(--gray); }
-
-        /* Form */
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-label {
-            display: block;
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: var(--dark);
-        }
-
-        .form-input,
-        .form-textarea {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid var(--gray-light);
-            border-radius: 8px;
-            font-size: 14px;
-            transition: border-color 0.2s;
-            font-family: inherit;
-        }
-
-        .form-input:focus,
-        .form-textarea:focus {
-            outline: none;
-            border-color: var(--primary);
-        }
-
-        .form-textarea {
-            resize: vertical;
-            min-height: 80px;
-        }
-
-        .form-hint {
-            display: block;
-            font-size: 12px;
-            color: var(--gray);
-            margin-top: 4px;
-        }
-
-        .form-hint a {
-            color: var(--primary);
-            text-decoration: none;
-        }
-
-        .form-hint a:hover {
-            text-decoration: underline;
-        }
-
-        /* Alert */
-        .alert {
-            padding: 16px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            animation: slideIn 0.3s ease;
-        }
-
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .alert-success {
-            background: #d1fae5;
-            color: var(--success);
-        }
-
-        .alert-danger {
-            background: #fee2e2;
-            color: var(--danger);
-        }
-
-        .alert-close {
-            background: none;
-            border: none;
-            font-size: 20px;
-            cursor: pointer;
-            color: inherit;
-            opacity: 0.7;
-        }
-
-        .alert-close:hover {
-            opacity: 1;
-        }
-
-        /* Footer */
-        .footer {
-            background: var(--white);
-            border-radius: var(--radius);
-            padding: 16px 24px;
-            text-align: center;
-            font-size: 13px;
-            color: var(--gray);
-            box-shadow: var(--shadow);
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            body {
-                padding: 12px;
-            }
-
-            .header {
-                padding: 16px;
-            }
-
-            .header-title h1 {
-                font-size: 20px;
-            }
-
-            .card {
-                padding: 16px;
-            }
-
-            .grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* Loading */
-        .loading {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 2px solid var(--gray-light);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: spin 0.6s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .btn-save {
-            width: 100%;
-            padding: 14px;
-            font-size: 16px;
-        }
-
-        /* Base de Conocimiento (RAG) */
-        .kb-entry {
-            display: flex;
-            gap: 12px;
-            align-items: flex-start;
-            padding: 12px;
-            border: 2px solid var(--gray-light);
-            border-radius: 8px;
-            margin-bottom: 10px;
-            background: var(--white);
-        }
-
-        .kb-entry-thumb {
-            width: 56px;
-            height: 56px;
-            border-radius: 8px;
-            object-fit: cover;
-            flex-shrink: 0;
-            background: var(--gray-light);
-        }
-
-        .kb-entry-thumb-placeholder {
-            width: 56px;
-            height: 56px;
-            border-radius: 8px;
-            flex-shrink: 0;
-            background: var(--gray-light);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-        }
-
-        .kb-entry-body {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .kb-entry-title {
-            font-weight: 600;
-            font-size: 14px;
-            color: var(--dark);
-        }
-
-        .kb-entry-text {
-            font-size: 13px;
-            color: var(--gray);
-            margin-top: 2px;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-
-        .kb-tag {
-            display: inline-block;
-            font-size: 11px;
-            padding: 2px 8px;
-            border-radius: 999px;
-            background: #e8f8ef;
-            color: var(--primary-dark);
-            margin-right: 4px;
-            margin-top: 6px;
-        }
-
-        .kb-entry-actions {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .btn-sm {
-            padding: 6px 10px;
-            font-size: 12px;
-        }
-
-        .kb-search-result {
-            padding: 10px 12px;
-            border-left: 3px solid var(--primary);
-            background: var(--gray-light);
-            border-radius: 0 8px 8px 0;
-            margin-bottom: 8px;
-            font-size: 13px;
-        }
-
-        .kb-score {
-            font-weight: 700;
-            color: var(--primary-dark);
-        }
-
-        .kb-empty {
-            text-align: center;
-            padding: 24px;
-            color: var(--gray);
-            font-size: 14px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel de Control — WhatsApp Bot</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/logs.css">
+  <link rel="stylesheet" href="css/knowledge.css">
 </head>
 <body>
-    <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <div class="header-title">
-                <span class="bot-icon">🤖</span>
-                <h1>WhatsApp Bot Panel</h1>
-            </div>
-            <div id="botStatus" class="status-badge status-active">
-                <span class="loading"></span>
-                Cargando...
-            </div>
+  <div id="alertContainer"></div>
+
+  <div class="shell">
+    <!-- Cabecera -->
+    <header class="top">
+      <div class="brand-mark">
+        <div class="brand-mark-icon">🤖</div>
+        <div>
+          <span class="eyebrow">Panel de control</span>
+          <h1>Tu Bot de WhatsApp</h1>
         </div>
+      </div>
+      <div id="botStatus" class="status-badge status-active">
+        <span class="loading"></span> Conectando...
+      </div>
+    </header>
 
-        <!-- Alert Container -->
-        <div id="alertContainer"></div>
+    <!-- Navegación -->
+    <nav class="tabs" role="tablist" aria-label="Secciones del panel">
+      <button class="tab is-active" data-tab="panel" role="tab" aria-selected="true">
+        <span class="tab-index">01</span> Panel
+      </button>
+      <button class="tab" data-tab="config" role="tab" aria-selected="false">
+        <span class="tab-index">02</span> Configuración
+      </button>
+      <button class="tab" data-tab="knowledge" role="tab" aria-selected="false">
+        <span class="tab-index">03</span> Conocimiento
+      </button>
+    </nav>
 
-        <!-- Control Panel -->
-        <div class="grid">
-            <div class="card">
-                <div class="card-title">⚙️ Control del Bot</div>
-                <div class="btn-group">
-                    <button id="btnPause" class="btn btn-warning">⏸️ Pausar</button>
-                    <button id="btnResume" class="btn btn-success">▶️ Reanudar</button>
-                    <button id="btnToggleLogs" class="btn btn-info">📋 Logs</button>
-                    <button id="btnResetCounter" class="btn btn-secondary">🔄 Reset</button>
-                </div>
-                <div class="stats">
-                    <div>
-                        <div class="stats-label">Mensajes esta hora</div>
-                        <div class="stats-value"><span id="messageCount">0</span>/100</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-title">📋 Logs en Tiempo Real</div>
-                <div class="btn-group">
-                    <button id="btnClearLogs" class="btn btn-secondary">🗑️ Limpiar</button>
-                    <button id="btnToggleAutoScroll" class="btn btn-info">📜 Auto-scroll</button>
-                </div>
-                <div class="logs-container" id="logsContainer">
-                    <div class="log-muted">Esperando logs...</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Configuration Form -->
+    <!-- ============================================================
+         01 · Panel — control del bot y logs en vivo
+         ============================================================ -->
+    <section class="tab-panel" data-panel="panel">
+      <div class="grid">
         <div class="card">
-            <div class="card-title">⚙️ Configuración</div>
-            <form id="configForm">
-                <div class="form-group">
-                    <label class="form-label">Prompt Global</label>
-                    <textarea id="promptGlobal" class="form-textarea" rows="3" placeholder="Eres un asistente útil y educado."></textarea>
-                    <span class="form-hint">Comportamiento base del bot con Gemini</span>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">API Key de Gemini</label>
-                    <input type="text" id="apiKeyGemini" class="form-input" placeholder="AIzaSy...">
-                    <span class="form-hint">Obtén tu API key en <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a></span>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">API Key de Grok (xAI)</label>
-                    <input type="text" id="apiKeyGrok" class="form-input" placeholder="xai-...">
-                    <span class="form-hint">Obtén tu API key en <a href="https://console.x.ai" target="_blank" rel="noopener">xAI Console</a></span>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Grupos Permitidos (Lista Blanca)</label>
-                    <textarea id="gruposPermitidos" class="form-textarea" rows="4" placeholder="120363123456789012@g.us&#10;120363987654321098@g.us"></textarea>
-                    <span class="form-hint">Un ID de grupo por línea. El bot SOLO responderá en estos grupos</span>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Grupos Excluidos (Lista Negra)</label>
-                    <textarea id="gruposExcluidos" class="form-textarea" rows="3" placeholder="120363111111111111@g.us"></textarea>
-                    <span class="form-hint">Grupos donde el bot NO responderá nunca</span>
-                </div>
-
-                <div class="grid">
-                    <div class="form-group">
-                        <label class="form-label" for="delayMin">Delay Mínimo (ms)</label>
-                        <input type="number" id="delayMin" class="form-input" value="2000" min="1000" max="10000" title="Delay mínimo">
-                        <span class="form-hint">Tiempo mínimo antes de responder</span>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label" for="delayMax">Delay Máximo (ms)</label>
-                        <input type="number" id="delayMax" class="form-input" value="5000" min="2000" max="15000" title="Delay máximo">
-                        <span class="form-hint">Tiempo máximo antes de responder</span>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Comandos con IA</label>
-                    <textarea id="comandos" class="form-textarea" rows="4" placeholder="/ayuda=Muestra información del bot&#10;/resumen=Resume el texto enviado"></textarea>
-                    <span class="form-hint">Formato: /comando=descripción (uno por línea)</span>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Comandos Simples (Sin IA)</label>
-                    <textarea id="comandosSimples" class="form-textarea" rows="6" placeholder="/biografia=🤖 Soy un bot...&#10;/horario=⏰ Disponible 24/7"></textarea>
-                    <span class="form-hint">Formato: /comando=respuesta (uno por línea)</span>
-                </div>
-
-                <button type="submit" class="btn btn-primary btn-save">
-                    💾 Guardar Cambios
-                </button>
-            </form>
+          <div class="card-title">⚙️ Control del Bot</div>
+          <div class="btn-group">
+            <button id="btnPause" class="btn btn-warning">⏸️ Pausar</button>
+            <button id="btnResume" class="btn btn-success">▶️ Reanudar</button>
+            <button id="btnToggleLogs" class="btn btn-secondary">📋 Logs</button>
+            <button id="btnResetCounter" class="btn btn-secondary">🔄 Reset</button>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Mensajes esta hora</span>
+            <span class="stat-value"><span id="messageCount">0</span><small>/100</small></span>
+          </div>
         </div>
 
-        <!-- Base de Conocimiento (RAG) -->
-        <div class="card" style="margin-top: 24px;">
-            <div class="card-title">📚 Base de Conocimiento del Negocio (RAG)</div>
-            <p class="form-hint" style="margin-bottom: 16px;">
-                Carga aquí la información de tu negocio (productos, precios, horarios, promociones).
-                El bot la usará automáticamente para responder a los clientes, y si una entrada tiene imagen
-                (catálogo), la enviará por WhatsApp cuando sea relevante. Comando: <b>/catalogo</b>
-            </p>
+        <div class="card">
+          <div class="card-title">📋 Logs en Tiempo Real</div>
+          <div class="btn-group" style="margin-bottom: var(--space-4);">
+            <button id="btnClearLogs" class="btn btn-secondary">🗑️ Limpiar</button>
+            <button id="btnToggleAutoScroll" class="btn btn-secondary">📜 Auto-scroll: ON</button>
+          </div>
+          <div class="logs-container" id="logsContainer">
+            <div class="log-muted">Esperando logs...</div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-            <div class="grid">
-                <!-- Formulario de nueva entrada -->
-                <div>
-                    <div class="form-group">
-                        <label class="form-label" for="kbTitle">Título</label>
-                        <input type="text" id="kbTitle" class="form-input" placeholder="Ej: Pizza Familiar de Pepperoni">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label" for="kbText">Información</label>
-                        <textarea id="kbText" class="form-textarea" rows="4" placeholder="Ej: Pizza familiar de pepperoni a S/35. Incluye borde de queso gratis los viernes."></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label" for="kbTags">Etiquetas (opcional)</label>
-                        <input type="text" id="kbTags" class="form-input" placeholder="pizza, precio, promoción">
-                        <span class="form-hint">Separadas por comas. Ayudan a la búsqueda.</span>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label" for="kbImage">Imagen de catálogo (opcional)</label>
-                        <input type="file" id="kbImage" class="form-input" accept="image/png,image/jpeg,image/webp">
-                        <span class="form-hint">Foto del producto que el bot enviará por WhatsApp (máx. 10 MB)</span>
-                    </div>
-                    <button type="button" id="btnKbAdd" class="btn btn-primary" style="width:100%;">➕ Agregar a la base</button>
-                </div>
+    <!-- ============================================================
+         02 · Configuración — comportamiento del bot
+         ============================================================ -->
+    <section class="tab-panel" data-panel="config" hidden>
+      <div class="card">
+        <div class="card-title">⚙️ Configuración</div>
+        <form id="configForm">
+          <div class="form-group">
+            <label class="form-label" for="promptGlobal">Prompt Global</label>
+            <textarea id="promptGlobal" class="form-textarea" rows="3" placeholder="Eres un asistente útil y educado."></textarea>
+            <span class="form-hint">Comportamiento base del bot con Gemini</span>
+          </div>
 
-                <!-- Probar búsqueda -->
-                <div>
-                    <div class="form-group">
-                        <label class="form-label" for="kbSearchInput">🔎 Probar búsqueda (como preguntaría un cliente)</label>
-                        <input type="text" id="kbSearchInput" class="form-input" placeholder="Ej: ¿cuánto cuesta la pizza familiar?">
-                    </div>
-                    <div class="btn-group" style="margin-bottom: 12px;">
-                        <button type="button" id="btnKbSearch" class="btn btn-info">Buscar</button>
-                        <button type="button" id="btnKbReindex" class="btn btn-secondary" title="Regenera los embeddings de todas las entradas (útil si agregaste la API key después)">🔄 Reindexar</button>
-                    </div>
-                    <div id="kbSearchResults"></div>
-                </div>
+          <div class="form-group">
+            <label class="form-label" for="apiKeyGemini">API Key de Gemini</label>
+            <input type="text" id="apiKeyGemini" class="form-input" placeholder="AIzaSy...">
+            <span class="form-hint">Se guarda en <code>.env</code>, no en config.json. Obtén tu key en <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a></span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="apiKeyGrok">API Key de Grok (xAI)</label>
+            <input type="text" id="apiKeyGrok" class="form-input" placeholder="xai-...">
+            <span class="form-hint">Se guarda en <code>.env</code>. Obtén tu key en <a href="https://console.x.ai" target="_blank" rel="noopener">xAI Console</a></span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="gruposPermitidos">Grupos Permitidos (Lista Blanca)</label>
+            <textarea id="gruposPermitidos" class="form-textarea" rows="4" placeholder="120363123456789012@g.us&#10;120363987654321098@g.us"></textarea>
+            <span class="form-hint">Un ID de grupo por línea. El bot SOLO responderá en estos grupos</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="gruposExcluidos">Grupos Excluidos (Lista Negra)</label>
+            <textarea id="gruposExcluidos" class="form-textarea" rows="3" placeholder="120363111111111111@g.us"></textarea>
+            <span class="form-hint">Grupos donde el bot NO responderá nunca</span>
+          </div>
+
+          <div class="grid">
+            <div class="form-group">
+              <label class="form-label" for="delayMin">Delay Mínimo (ms)</label>
+              <input type="number" id="delayMin" class="form-input" value="2000" min="1000" max="10000">
+              <span class="form-hint">Tiempo mínimo antes de responder</span>
             </div>
-
-            <div class="card-title" style="margin-top: 20px; font-size: 15px;">Entradas guardadas (<span id="kbCount">0</span>)</div>
-            <div id="kbList">
-                <div class="kb-empty">Cargando...</div>
+            <div class="form-group">
+              <label class="form-label" for="delayMax">Delay Máximo (ms)</label>
+              <input type="number" id="delayMax" class="form-input" value="5000" min="2000" max="15000">
+              <span class="form-hint">Tiempo máximo antes de responder</span>
             </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="comandos">Comandos con IA</label>
+            <textarea id="comandos" class="form-textarea" rows="4" placeholder="/ayuda=Muestra información del bot&#10;/resumen=Resume el texto enviado"></textarea>
+            <span class="form-hint">Formato: /comando=descripción (uno por línea)</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="comandosSimples">Comandos Simples (Sin IA)</label>
+            <textarea id="comandosSimples" class="form-textarea" rows="6" placeholder="/biografia=🤖 Soy un bot...&#10;/horario=⏰ Disponible 24/7"></textarea>
+            <span class="form-hint">Formato: /comando=respuesta (uno por línea)</span>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block">💾 Guardar Cambios</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         03 · Conocimiento — base RAG del negocio
+         ============================================================ -->
+    <section class="tab-panel" data-panel="knowledge" hidden>
+      <div class="card">
+        <div class="card-title">📚 Base de Conocimiento del Negocio</div>
+        <p class="card-note">
+          Carga aquí la información de tu negocio (productos, precios, horarios, promociones).
+          El bot la usará automáticamente para responder a los clientes, y si una entrada tiene imagen
+          de catálogo, la enviará por WhatsApp cuando sea relevante. Comando en el chat: <b>/catalogo</b>
+        </p>
+
+        <div class="grid">
+          <div>
+            <div class="form-group">
+              <label class="form-label" for="kbTitle">Título</label>
+              <input type="text" id="kbTitle" class="form-input" placeholder="Ej: Pizza Familiar de Pepperoni">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="kbText">Información</label>
+              <textarea id="kbText" class="form-textarea" rows="4" placeholder="Ej: Pizza familiar de pepperoni a S/35. Incluye borde de queso gratis los viernes."></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="kbTags">Etiquetas (opcional)</label>
+              <input type="text" id="kbTags" class="form-input" placeholder="pizza, precio, promoción">
+              <span class="form-hint">Separadas por comas. Ayudan a la búsqueda.</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="kbImage">Imagen de catálogo (opcional)</label>
+              <input type="file" id="kbImage" class="form-input" accept="image/png,image/jpeg,image/webp">
+              <span class="form-hint">Foto del producto que el bot enviará por WhatsApp (máx. 10 MB)</span>
+            </div>
+            <button type="button" id="btnKbAdd" class="btn btn-accent btn-block">➕ Agregar a la base</button>
+          </div>
+
+          <div>
+            <div class="form-group">
+              <label class="form-label" for="kbSearchInput">🔎 Probar búsqueda (como preguntaría un cliente)</label>
+              <input type="text" id="kbSearchInput" class="form-input" placeholder="Ej: ¿cuánto cuesta la pizza familiar?">
+            </div>
+            <div class="btn-group" style="margin-bottom: var(--space-4);">
+              <button type="button" id="btnKbSearch" class="btn btn-secondary">Buscar</button>
+              <button type="button" id="btnKbReindex" class="btn btn-secondary" title="Regenera los embeddings de todas las entradas (útil si agregaste la API key después)">🔄 Reindexar</button>
+            </div>
+            <div id="kbSearchResults"></div>
+          </div>
         </div>
 
-        <!-- Footer -->
-        <div class="footer">
-            ⚠️ Después de guardar cambios, reinicia el bot para aplicar la nueva configuración
+        <div class="card-subtitle">Entradas guardadas (<span id="kbCount">0</span>)</div>
+        <div id="kbList">
+          <div class="kb-empty">Cargando...</div>
         </div>
-    </div>
+      </div>
+    </section>
 
-    <script>
-        // Estado
-        let autoScroll = true;
+    <p class="footer-note">⚠️ Después de guardar cambios, reinicia el bot para aplicar la nueva configuración</p>
+  </div>
 
-        // Actualizar estado del bot
-        async function updateBotStatus() {
-            try {
-                const response = await fetch('/state');
-                const state = await response.json();
-                
-                const statusBadge = document.getElementById('botStatus');
-                const btnToggleLogs = document.getElementById('btnToggleLogs');
-                const messageCount = document.getElementById('messageCount');
-                
-                if (state.active) {
-                    statusBadge.innerHTML = '✅ Activo';
-                    statusBadge.className = 'status-badge status-active';
-                } else {
-                    statusBadge.innerHTML = '⏸️ Pausado';
-                    statusBadge.className = 'status-badge status-paused';
-                }
-                
-                btnToggleLogs.textContent = state.logsEnabled ? '📋 Logs: ON' : '📋 Logs: OFF';
-                messageCount.textContent = state.messagesSentLastHour || 0;
-            } catch (error) {
-                console.error('Error:', error);
-            }
-        }
-
-        // Control del bot
-        async function controlBot(action) {
-            try {
-                const response = await fetch('/control', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action })
-                });
-                
-                const result = await response.json();
-                if (result.success) {
-                    updateBotStatus();
-                    showAlert('✅ Acción ejecutada correctamente', 'success');
-                } else {
-                    showAlert('❌ Error al ejecutar acción', 'danger');
-                }
-            } catch (error) {
-                showAlert('❌ Error de conexión', 'danger');
-            }
-        }
-
-        // Event listeners
-        document.getElementById('btnPause').addEventListener('click', () => controlBot('pause'));
-        document.getElementById('btnResume').addEventListener('click', () => controlBot('resume'));
-        document.getElementById('btnToggleLogs').addEventListener('click', () => controlBot('toggleLogs'));
-        document.getElementById('btnResetCounter').addEventListener('click', () => controlBot('resetCounter'));
-
-        // Logs
-        async function updateLogs() {
-            try {
-                const response = await fetch('/logs');
-                const data = await response.json();
-                const logsContainer = document.getElementById('logsContainer');
-                
-                if (data.logs && data.logs.length > 0) {
-                    logsContainer.innerHTML = data.logs.map(log => {
-                        let colorClass = 'log-info';
-                        if (log.type === 'warning') colorClass = 'log-warning';
-                        if (log.type === 'success') colorClass = 'log-success';
-                        if (log.type === 'error') colorClass = 'log-error';
-                        
-                        return `<div class="log-entry ${colorClass}">[${log.timestamp}] ${log.message}</div>`;
-                    }).join('');
-                    
-                    if (autoScroll) {
-                        logsContainer.scrollTop = logsContainer.scrollHeight;
-                    }
-                } else {
-                    logsContainer.innerHTML = '<div class="log-muted">No hay logs disponibles</div>';
-                }
-            } catch (error) {
-                console.error('Error:', error);
-            }
-        }
-
-        document.getElementById('btnClearLogs').addEventListener('click', async () => {
-            try {
-                await fetch('/logs/clear', { method: 'POST' });
-                updateLogs();
-                showAlert('🗑️ Logs limpiados', 'success');
-            } catch (error) {
-                showAlert('❌ Error al limpiar logs', 'danger');
-            }
-        });
-
-        document.getElementById('btnToggleAutoScroll').addEventListener('click', () => {
-            autoScroll = !autoScroll;
-            const btn = document.getElementById('btnToggleAutoScroll');
-            btn.textContent = autoScroll ? '📜 Auto-scroll: ON' : '📜 Auto-scroll: OFF';
-        });
-
-        // Cargar configuración
-        async function loadConfig() {
-            try {
-                const response = await fetch('/config');
-                const config = await response.json();
-                
-                document.getElementById('promptGlobal').value = config.promptGlobal || '';
-                document.getElementById('apiKeyGemini').value = config.apiKeyGemini || '';
-                document.getElementById('apiKeyGrok').value = config.grok?.apiKey || '';
-                document.getElementById('gruposPermitidos').value = (config.gruposPermitidos || []).join('\n');
-                document.getElementById('gruposExcluidos').value = (config.gruposExcluidos || []).join('\n');
-                document.getElementById('delayMin').value = config.delayMin || 2000;
-                document.getElementById('delayMax').value = config.delayMax || 5000;
-                
-                const comandosTexto = Object.entries(config.comandos || {})
-                    .map(([cmd, desc]) => `${cmd}=${desc}`)
-                    .join('\n');
-                document.getElementById('comandos').value = comandosTexto;
-
-                const comandosSimplesTexto = Object.entries(config.comandosSimples || {})
-                    .map(([cmd, resp]) => `${cmd}=${resp}`)
-                    .join('\n');
-                document.getElementById('comandosSimples').value = comandosSimplesTexto;
-            } catch (error) {
-                showAlert('Error al cargar la configuración', 'danger');
-            }
-        }
-
-        // Guardar configuración
-        document.getElementById('configForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const promptGlobal = document.getElementById('promptGlobal').value;
-            const apiKeyGemini = document.getElementById('apiKeyGemini').value;
-            const apiKeyGrok = document.getElementById('apiKeyGrok').value;
-            const gruposPermitidos = document.getElementById('gruposPermitidos').value.split('\n').filter(g => g.trim());
-            const gruposExcluidos = document.getElementById('gruposExcluidos').value.split('\n').filter(g => g.trim());
-            const delayMin = parseInt(document.getElementById('delayMin').value);
-            const delayMax = parseInt(document.getElementById('delayMax').value);
-            
-            const comandosText = document.getElementById('comandos').value;
-            const comandos = {};
-            comandosText.split('\n').forEach(line => {
-                const [cmd, desc] = line.split('=');
-                if (cmd && desc) {
-                    comandos[cmd.trim()] = desc.trim();
-                }
-            });
-
-            const comandosSimplesText = document.getElementById('comandosSimples').value;
-            const comandosSimples = {};
-            comandosSimplesText.split('\n').forEach(line => {
-                const [cmd, resp] = line.split('=');
-                if (cmd && resp) {
-                    comandosSimples[cmd.trim()] = resp.trim();
-                }
-            });
-            
-            const configData = {
-                promptGlobal,
-                apiKeyGemini,
-                apiKeyGrok,
-                gruposPermitidos,
-                gruposExcluidos,
-                comandos,
-                comandosSimples,
-                delayMin,
-                delayMax
-            };
-            
-            try {
-                const response = await fetch('/config', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(configData)
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    showAlert('✅ Configuración guardada. Reinicia el bot para aplicar cambios.', 'success');
-                } else {
-                    showAlert('❌ Error al guardar: ' + result.message, 'danger');
-                }
-            } catch (error) {
-                showAlert('❌ Error de conexión con el servidor', 'danger');
-            }
-        });
-
-        // Mostrar alertas
-        function showAlert(message, type) {
-            const alertContainer = document.getElementById('alertContainer');
-            const alert = document.createElement('div');
-            alert.className = `alert alert-${type}`;
-            alert.innerHTML = `
-                <span>${message}</span>
-                <button class="alert-close" onclick="this.parentElement.remove()">×</button>
-            `;
-            alertContainer.innerHTML = '';
-            alertContainer.appendChild(alert);
-            
-            setTimeout(() => alert.remove(), 5000);
-        }
-
-        // ============================================================
-        // Base de Conocimiento (RAG)
-        // ============================================================
-
-        function escapeHtml(s) {
-            return String(s).replace(/[&<>"']/g, c => ({
-                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-            }[c]));
-        }
-
-        async function loadKnowledge() {
-            try {
-                const response = await fetch('/knowledge');
-                const data = await response.json();
-                const list = document.getElementById('kbList');
-                const entries = data.entries || [];
-                document.getElementById('kbCount').textContent = entries.length;
-
-                if (entries.length === 0) {
-                    list.innerHTML = '<div class="kb-empty">📭 Aún no hay información cargada. Agrega la primera entrada con el formulario de arriba.</div>';
-                    return;
-                }
-
-                list.innerHTML = entries.map(e => `
-                    <div class="kb-entry">
-                        ${e.imageFile
-                            ? `<img class="kb-entry-thumb" src="/knowledge/image/${encodeURIComponent(e.imageFile)}" alt="">`
-                            : `<div class="kb-entry-thumb-placeholder">📄</div>`}
-                        <div class="kb-entry-body">
-                            <div class="kb-entry-title">${escapeHtml(e.title)} ${e.hasEmbedding ? '' : '⚠️'}</div>
-                            <div class="kb-entry-text">${escapeHtml(e.text)}</div>
-                            <div>${(e.tags || []).map(t => `<span class="kb-tag">${escapeHtml(t)}</span>`).join('')}</div>
-                        </div>
-                        <div class="kb-entry-actions">
-                            <button class="btn btn-danger btn-sm" onclick="deleteKnowledge('${e.id}')">🗑️</button>
-                        </div>
-                    </div>
-                `).join('');
-            } catch (error) {
-                document.getElementById('kbList').innerHTML = '<div class="kb-empty">❌ Error al cargar la base de conocimiento</div>';
-            }
-        }
-
-        async function deleteKnowledge(id) {
-            if (!confirm('¿Eliminar esta entrada y su imagen?')) return;
-            try {
-                const response = await fetch(`/knowledge/${id}`, { method: 'DELETE' });
-                const result = await response.json();
-                if (result.success) {
-                    showAlert('🗑️ Entrada eliminada', 'success');
-                    loadKnowledge();
-                } else {
-                    showAlert('❌ ' + (result.error || 'Error al eliminar'), 'danger');
-                }
-            } catch (error) {
-                showAlert('❌ Error de conexión', 'danger');
-            }
-        }
-
-        function fileToBase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
-        }
-
-        document.getElementById('btnKbAdd').addEventListener('click', async () => {
-            const title = document.getElementById('kbTitle').value.trim();
-            const text = document.getElementById('kbText').value.trim();
-            const tags = document.getElementById('kbTags').value.trim();
-            const imageInput = document.getElementById('kbImage');
-            const btn = document.getElementById('btnKbAdd');
-
-            if (!title || !text) {
-                showAlert('⚠️ Título e información son obligatorios', 'danger');
-                return;
-            }
-
-            let imageBase64 = null, imageMime = null;
-            const file = imageInput.files[0];
-            if (file) {
-                if (file.size > 10 * 1024 * 1024) {
-                    showAlert('⚠️ La imagen supera los 10 MB', 'danger');
-                    return;
-                }
-                imageBase64 = await fileToBase64(file);
-                imageMime = file.type;
-            }
-
-            btn.disabled = true;
-            btn.innerHTML = '<span class="loading"></span> Guardando...';
-            try {
-                const response = await fetch('/knowledge', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title, text, tags, imageBase64, imageMime })
-                });
-                const result = await response.json();
-                if (result.success) {
-                    showAlert('✅ Entrada agregada a la base de conocimiento', 'success');
-                    document.getElementById('kbTitle').value = '';
-                    document.getElementById('kbText').value = '';
-                    document.getElementById('kbTags').value = '';
-                    imageInput.value = '';
-                    loadKnowledge();
-                } else {
-                    showAlert('❌ ' + (result.error || 'Error al guardar'), 'danger');
-                }
-            } catch (error) {
-                showAlert('❌ Error de conexión', 'danger');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '➕ Agregar a la base';
-            }
-        });
-
-        document.getElementById('btnKbSearch').addEventListener('click', async () => {
-            const query = document.getElementById('kbSearchInput').value.trim();
-            const resultsDiv = document.getElementById('kbSearchResults');
-            if (!query) {
-                resultsDiv.innerHTML = '<div class="kb-empty">Escribe una consulta de prueba</div>';
-                return;
-            }
-            resultsDiv.innerHTML = '<div class="kb-empty"><span class="loading"></span> Buscando...</div>';
-            try {
-                const response = await fetch('/knowledge/search', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query })
-                });
-                const data = await response.json();
-                const results = data.results || [];
-                if (results.length === 0) {
-                    resultsDiv.innerHTML = '<div class="kb-empty">Sin coincidencias — el bot respondería sin contexto del negocio</div>';
-                    return;
-                }
-                resultsDiv.innerHTML = results.map(r => `
-                    <div class="kb-search-result">
-                        <span class="kb-score">${(r.score * 100).toFixed(0)}%</span>
-                        — <b>${escapeHtml(r.title)}</b>${r.imageFile ? ' 🖼️' : ''}<br>
-                        ${escapeHtml(r.text.slice(0, 140))}${r.text.length > 140 ? '…' : ''}
-                    </div>
-                `).join('');
-            } catch (error) {
-                resultsDiv.innerHTML = '<div class="kb-empty">❌ Error al buscar</div>';
-            }
-        });
-
-        document.getElementById('kbSearchInput').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') document.getElementById('btnKbSearch').click();
-        });
-
-        document.getElementById('btnKbReindex').addEventListener('click', async () => {
-            const btn = document.getElementById('btnKbReindex');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="loading"></span> Reindexando...';
-            try {
-                const response = await fetch('/knowledge/reindex', { method: 'POST' });
-                const result = await response.json();
-                if (result.success) {
-                    showAlert(`✅ Reindexado: ${result.ok} ok, ${result.failed} fallidas de ${result.total}`, 'success');
-                    loadKnowledge();
-                } else {
-                    showAlert('❌ ' + (result.error || 'Error al reindexar'), 'danger');
-                }
-            } catch (error) {
-                showAlert('❌ Error de conexión', 'danger');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '🔄 Reindexar';
-            }
-        });
-
-        // Inicializar
-        loadConfig();
-        updateBotStatus();
-        updateLogs();
-        loadKnowledge();
-        setInterval(updateBotStatus, 30000);
-        setInterval(updateLogs, 5000);
-    </script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>

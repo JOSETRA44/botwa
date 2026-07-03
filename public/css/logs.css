@@ -1,0 +1,44 @@
+/* ============================================================
+   Panel de logs — estilo "recibo/terminal"
+   ============================================================ */
+
+.logs-container {
+  background: var(--terminal-bg);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+  height: 300px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.logs-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.logs-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.logs-container::-webkit-scrollbar-thumb {
+  background: var(--terminal-line);
+  border-radius: 4px;
+}
+
+.log-entry {
+  padding-bottom: 3px;
+  border-bottom: 1px dashed var(--terminal-line);
+  margin-bottom: 3px;
+  word-break: break-word;
+}
+
+.log-entry:last-child {
+  border-bottom: none;
+}
+
+.log-info { color: #7fb4c9; }
+.log-success { color: #7fc999; }
+.log-warning { color: #d9b168; }
+.log-error { color: #d97f7f; }
+.log-muted { color: var(--terminal-text); opacity: 0.55; }

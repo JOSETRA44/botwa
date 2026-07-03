@@ -1,0 +1,178 @@
+/* ============================================================
+   Estructura: fondo, cabecera, navegación por pestañas, grillas
+   ============================================================ */
+
+/* Textura de grano sutil sobre el papel — le da atmósfera sin
+   recurrir a un gradiente de moda. Es un ruido SVG inline. */
+body {
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+}
+
+.shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-4) var(--space-7);
+}
+
+/* ---------- Cabecera ---------- */
+
+.top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: var(--space-5);
+}
+
+.brand-mark {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.brand-mark-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius);
+  background: var(--brand);
+  color: var(--paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-dark);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.brand-mark h1 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(24px, 3.2vw, 32px);
+  line-height: 1.1;
+  color: var(--ink);
+}
+
+/* ---------- Navegación por pestañas ---------- */
+
+.tabs {
+  display: flex;
+  gap: var(--space-6);
+  margin-bottom: var(--space-5);
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+
+.tab {
+  appearance: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 0 0 var(--space-3);
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink-faint);
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: color 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+
+.tab-index {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-faint);
+}
+
+.tab:hover {
+  color: var(--ink);
+}
+
+.tab.is-active {
+  color: var(--brand);
+  border-bottom-color: var(--accent);
+}
+
+.tab.is-active .tab-index {
+  color: var(--accent);
+}
+
+.tab-panel[hidden] {
+  display: none;
+}
+
+.tab-panel {
+  animation: rise 0.35s var(--ease);
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- Grillas ---------- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-5);
+}
+
+.grid + .grid,
+.card + .grid,
+.grid + .card {
+  margin-top: var(--space-5);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* ---------- Pie ---------- */
+
+.footer-note {
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+
+/* ---------- Responsivo ---------- */
+
+@media (max-width: 720px) {
+  .shell {
+    padding: var(--space-4) var(--space-3) var(--space-6);
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .brand-mark-icon {
+    width: 42px;
+    height: 42px;
+    font-size: 20px;
+  }
+}

@@ -1,0 +1,85 @@
+/* ============================================================
+   Design tokens — "Sala de control" editorial
+   Papel cálido + verde pino + acento terracota.
+   Cambia estos valores para retemar todo el panel.
+   ============================================================ */
+
+:root {
+  /* Superficies */
+  --paper: #f4eee0;
+  --paper-alt: #ece1c8;
+  --surface: #fffcf5;
+  --line: #e1d5b7;
+  --line-soft: #ece3cd;
+
+  /* Tinta */
+  --ink: #211e17;
+  --ink-soft: #6a6353;
+  --ink-faint: #a39a84;
+
+  /* Marca */
+  --brand: #1f4d3a;
+  --brand-dark: #163828;
+  --brand-soft: #e1ede5;
+
+  /* Acento */
+  --accent: #c1502e;
+  --accent-dark: #9c3f22;
+  --accent-soft: #f6e2d6;
+
+  /* Estado */
+  --leaf: #3f7d53;
+  --leaf-soft: #dfeee2;
+  --gold: #b9812a;
+  --gold-soft: #f5ead0;
+  --brick: #a3392b;
+  --brick-soft: #f3dcd6;
+
+  /* Terminal (logs) */
+  --terminal-bg: #13201a;
+  --terminal-line: #23342b;
+  --terminal-text: #d8d2c0;
+
+  /* Tipografía */
+  --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-body: 'Work Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+
+  /* Forma */
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+
+  /* Sombra (con tinte cálido, no gris neutro) */
+  --shadow-sm: 0 1px 2px rgba(33, 30, 23, 0.08);
+  --shadow: 0 10px 30px -12px rgba(33, 30, 23, 0.28);
+
+  /* Espaciado */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--ink);
+  background-color: var(--paper);
+  min-height: 100vh;
+}
