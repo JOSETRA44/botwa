@@ -16,6 +16,7 @@ import {
   loadPanelLogs as loadPanelLogsFile,
   addPanelLog
 } from './shared/store.js';
+import { buildPreflightReport, printPreflightReport } from './shared/preflight.js';
 import { GeminiRateLimitError, makeGeminiLimiter } from './providers/geminiLimiter.js';
 import * as geminiProvider from './providers/gemini.js';
 import { callGrok as callGrokProvider } from './providers/grok.js';
@@ -684,7 +685,10 @@ async function startBot() {
   await loadConfig();
   await loadBotState();
   await loadPanelLogs();
-  
+
+  const entries = await rag.listEntries().catch(() => []);
+  printPreflightReport(buildPreflightReport(config, { entryCount: entries.length }));
+
   console.log(`\n🔐 Método de autenticación: ${LOGIN_METHOD}`);
   console.log('═'.repeat(60));
   

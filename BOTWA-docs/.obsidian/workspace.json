@@ -4,26 +4,6 @@
     "type": "split",
     "children": [
       {
-        "id": "4a58b8eb52258290",
-        "type": "tabs",
-        "children": [
-          {
-            "id": "cfb605bbd492d41c",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "Bienvenido.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "Bienvenido"
-            }
-          }
-        ]
-      },
-      {
         "id": "43f047042e33c32f",
         "type": "tabs",
         "children": [
@@ -199,8 +179,9 @@
       "bases:Crear nueva base": false
     }
   },
-  "active": "cfb605bbd492d41c",
+  "active": "cb8389a196a5c011",
   "lastOpenFiles": [
+    "Sistema/Reestructuracion Etapa 7 - Verificacion de Arranque.md",
     "Bienvenido.md"
   ]
 }
