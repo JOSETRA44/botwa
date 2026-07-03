@@ -20,6 +20,8 @@ import { GeminiRateLimitError, makeGeminiLimiter } from './providers/geminiLimit
 import * as geminiProvider from './providers/gemini.js';
 import { callGrok as callGrokProvider } from './providers/grok.js';
 import { callChatGPT as callChatGPTProvider } from './providers/chatgpt.js';
+import { createUserQueueStore } from './whatsapp/queue.js';
+import { sendRagImages } from './whatsapp/send.js';
 
 // Re-exportados para que test/geminiLimiter.test.js siga importando desde
 // bot.js sin cambios (la lógica en sí vive en providers/geminiLimiter.js).
@@ -66,10 +68,10 @@ const TIME_WINDOW = 1000; // 1 segundo
 const MAX_MESSAGES_PER_HOUR = 100; // Límite de seguridad
 
 // Sistema de cola de mensajes por usuario (evita pérdida de mensajes)
-const userQueues = new Map();
 const GROUPING_DELAY = 3000; // 3 segundos para agrupar mensajes
 const MAX_MESSAGES_IN_GROUP = 5; // Máximo 5 mensajes agrupados
 const MAX_QUEUE_SIZE = 10; // Máximo 10 mensajes en cola
+const userQueueStore = createUserQueueStore({ maxQueueSize: MAX_QUEUE_SIZE });
 
 // Cargar configuración desde config.json (delega en shared/store.js)
 async function loadConfig() {
@@ -321,33 +323,16 @@ function isSpam(userId) {
   return false;
 }
 
-// Obtener o crear cola de usuario
+// Obtener o crear cola de usuario / agregar mensaje a la cola — delegado a
+// whatsapp/queue.js (Etapa 3 de la reestructuración), mismo contrato de
+// siempre: el objeto devuelto por getUserQueue se sigue mutando directamente
+// (queue.timeout, queue.processing) en el resto de este archivo.
 function getUserQueue(userId) {
-  if (!userQueues.has(userId)) {
-    userQueues.set(userId, {
-      messages: [],        // Buffer temporal de mensajes
-      processing: false,   // ¿Está procesando actualmente?
-      timeout: null,       // Timer para agrupar mensajes
-      lastMessage: Date.now()
-    });
-  }
-  return userQueues.get(userId);
+  return userQueueStore.getOrCreate(userId);
 }
 
-// Agregar mensaje a la cola del usuario
 function addMessageToQueue(userId, messageData) {
-  const queue = getUserQueue(userId);
-  
-  // Verificar límite de cola
-  if (queue.messages.length >= MAX_QUEUE_SIZE) {
-    return false; // Cola llena
-  }
-  
-  // Agregar mensaje al buffer
-  queue.messages.push(messageData);
-  queue.lastMessage = Date.now();
-  
-  return true;
+  return userQueueStore.add(userId, messageData);
 }
 
 // Procesar cola de mensajes del usuario
@@ -603,20 +588,6 @@ async function getRagContext(query) {
   }
 }
 
-// Envía las imágenes de catálogo que coincidieron con la consulta (máx. 2)
-async function sendRagImages(sock, remoteJid, images, quotedMsg) {
-  for (const img of images.slice(0, 2)) {
-    try {
-      const buffer = await fs.readFile(img.imagePath);
-      await sock.sendMessage(remoteJid, {
-        image: buffer,
-        caption: `📦 ${img.title}`
-      }, quotedMsg ? { quoted: quotedMsg } : {});
-    } catch (error) {
-      console.error('⚠️ No se pudo enviar imagen de catálogo:', error.message);
-    }
-  }
-}
 
 // ============================================================
 // Respuesta directa desde el catálogo (sin IA)

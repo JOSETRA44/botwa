@@ -61,6 +61,23 @@ Closing session: SessionEntry { ... }
 
 **Qué se hizo:** se respaldaron y eliminaron los 3 archivos de sesión de ese contacto (`auth/session-264218452435140_*.json`) — no toda la carpeta `auth/` (eso hubiera forzado un nuevo escaneo de QR para toda la cuenta). Signal Protocol está diseñado para regenerar sesiones automáticamente desde un prekey bundle fresco la próxima vez que haya intercambio de mensajes con ese contacto — es la misma recuperación automática que ya se veía en el log, solo que no estaba llegando a buen puerto. El otro contacto (`137284787687557@lid`) mencionado en el reporte original no mostró evidencia de estar fallando actualmente, así que no se tocó — si vuelve a fallar, aplica el mismo arreglo.
 
+## 🔄 Actualización 2: el arreglo puntual no bastó — causa sistémica, no aislada (2026-07-03, mismo día)
+
+Horas después, el mismo contacto (`264218452435140@lid`) siguió fallando con `status ERROR` **después** de que su sesión ya se había regenerado limpiamente. Y peor: el segundo contacto (`137284787687557@lid`), que nunca se tocó, **también empezó a fallar** con el mismo síntoma:
+```
+[16:04:36] ❌ Entrega fallida (msg 3E959DDB → 264218452435140@lid): status ERROR
+[16:04:37] ❌ Entrega fallida (msg FF3A4648 → 264218452435140@lid): status ERROR
+[16:05:24] ❌ Entrega fallida (msg 6EF3E358 → 137284787687557@lid): status ERROR
+```
+
+Dos contactos `@lid` distintos con el mismo síntoma descarta la hipótesis de corrupción aislada por un proceso duplicado (esa explicación no puede repetirse en un contacto que nunca se tocó). Apunta a algo estructural en cómo esta versión de Baileys maneja el envío a contactos `@lid` específicamente.
+
+**Causa raíz real:** `@whiskeysockets/baileys` estaba en `7.0.0-rc.8`, una versión candidata (no estable) de noviembre 2025. El changelog de versiones posteriores (`rc10`, mayo 2026) lista explícitamente: *"LID<->PN Mappings from contactAction, historySync, and more"*, *"Encryption failures handling"*, y *"improved signal reliability"* — exactamente la clase de bug que se estaba viendo. Entre `rc.8` y `rc13` (la más reciente disponible) hubo una brecha de 6 meses sin releases y luego 4 release candidatos en 2 semanas, señal de trabajo activo de corrección de bugs justo en esta área.
+
+**Qué se hizo:** se actualizó `@whiskeysockets/baileys` de `^7.0.0-rc.8` a `^7.0.0-rc13` (`npm install`). Se verificó que la sesión de auth existente (`auth/creds.json`) sigue siendo válida con la versión nueva — se conectó una vez brevemente (sin enviar ningún mensaje real a ningún contacto) y reconectó sin pedir un nuevo escaneo de QR. `node --check` en todos los archivos y `npm test` (22/22) siguen en verde tras el upgrade.
+
+**No confirmado todavía:** si esto resuelve el problema de raíz solo se sabrá cuando el bot vuelva a atender tráfico real de esos dos contactos — vigilar el panel en busca de `❌ Entrega fallida` para `264218452435140@lid` y `137284787687557@lid` en los próximos días.
+
 ## 🔗 Relacionado
 - [[Index]]
 - [[Diagnostico de Codigo de Emparejamiento]]

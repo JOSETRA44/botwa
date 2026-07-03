@@ -35,7 +35,7 @@ Los 5 clientes de IA (`analyzeImageWithGemini`, `callGeminiRaw`, `callGemini`, `
 - **No se ejecutó `node bot.js` directamente** — el bot no estaba conectado durante esta sesión, pero se mantuvo la misma disciplina de verificación que cuando sí lo está.
 
 ## 🗺️ Lo que sigue
-- **Etapa 3:** extraer la cola de mensajes y el envío a WhatsApp a un módulo `whatsapp/`.
+- **Etapa 3 (hecha):** ver [[Reestructuracion Etapa 3 - Cola y Envio WhatsApp]].
 - **Etapa 4:** centralizar la conversión de stickers/LaTeX (hoy duplicada en 3 sitios) en `media.js`.
 - **Etapa 5:** reemplazar el dispatcher de ~600 líneas (`processCommand`) por un registro `Map<comando, handler>`.
 
