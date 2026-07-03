@@ -22,6 +22,7 @@ import { callGrok as callGrokProvider } from './providers/grok.js';
 import { callChatGPT as callChatGPTProvider } from './providers/chatgpt.js';
 import { createUserQueueStore } from './whatsapp/queue.js';
 import { sendRagImages } from './whatsapp/send.js';
+import { processUserQueue as processUserQueueImpl } from './whatsapp/messageHandler.js';
 
 // Re-exportados para que test/geminiLimiter.test.js siga importando desde
 // bot.js sin cambios (la lógica en sí vive en providers/geminiLimiter.js).
@@ -35,7 +36,7 @@ const LOGIN_METHOD = process.env.LOGIN_METHOD || 'QR';
 
 const CONFIG_PATH = path.join(__dirname, 'config.json');
 const STATE_PATH = path.join(__dirname, 'bot-state.json');
-let config = {};
+export let config = {};
 let botState = {
   active: true,
   logsEnabled: false,
@@ -335,114 +336,26 @@ function addMessageToQueue(userId, messageData) {
   return userQueueStore.add(userId, messageData);
 }
 
-// Procesar cola de mensajes del usuario
+// Deps frescas para whatsapp/messageHandler.js — se reconstruyen en cada
+// llamada (ver comentario en ese archivo sobre por qué getDeps es una
+// función y no un objeto cacheado).
+function messageProcessorDeps() {
+  return {
+    queueStore: userQueueStore,
+    canSendMessage, incrementMessageCount,
+    config, botState, addLog, appLogger,
+    randomDelay, simulateTyping,
+    answerQuery: (query) => answerQuery(query, answerQueryDeps()),
+    processAIResponseWithFormulas, sendRagImages,
+    maxMessagesInGroup: MAX_MESSAGES_IN_GROUP,
+    groupingDelayMs: GROUPING_DELAY,
+    maxMessagesPerHour: MAX_MESSAGES_PER_HOUR
+  };
+}
+
+// Procesar cola de mensajes del usuario — delegado a whatsapp/messageHandler.js
 async function processUserQueue(userId, sock) {
-  const queue = getUserQueue(userId);
-  
-  // Si ya está procesando, no hacer nada
-  if (queue.processing) {
-    return;
-  }
-  
-  // Si no hay mensajes, limpiar timeout y salir
-  if (queue.messages.length === 0) {
-    if (queue.timeout) {
-      clearTimeout(queue.timeout);
-      queue.timeout = null;
-    }
-    return;
-  }
-  
-  // Marcar como procesando
-  queue.processing = true;
-  
-  try {
-    // Obtener mensajes del buffer (máximo MAX_MESSAGES_IN_GROUP)
-    const messagesToProcess = queue.messages.splice(0, MAX_MESSAGES_IN_GROUP);
-    
-    if (messagesToProcess.length === 0) {
-      queue.processing = false;
-      return;
-    }
-    
-    // Obtener datos del primer mensaje
-    const firstMsg = messagesToProcess[0];
-    const remoteJid = firstMsg.remoteJid;
-    const isGroup = firstMsg.isGroup;
-    
-    // Verificar límite de mensajes por hora
-    if (!canSendMessage()) {
-      if (botState.logsEnabled) addLog('⚠️ Límite de mensajes por hora alcanzado', 'warning');
-      queue.processing = false;
-      return;
-    }
-    
-    // Construir mensaje agrupado
-    let combinedMessage = '';
-    if (messagesToProcess.length === 1) {
-      // Un solo mensaje
-      combinedMessage = messagesToProcess[0].text;
-    } else {
-      // Múltiples mensajes - agrupar con contexto
-      combinedMessage = messagesToProcess.map((msg, idx) => {
-        return `Mensaje ${idx + 1}: ${msg.text}`;
-      }).join('\n');
-    }
-    
-    if (botState.logsEnabled) {
-      const tipo = isGroup ? '[GRUPO]' : '[CONTACTO]';
-      addLog(`🔄 ${tipo} Procesando ${messagesToProcess.length} mensaje(s) agrupado(s)`, 'info');
-    }
-    
-    // Delay aleatorio antes de responder (simular escritura humana)
-    const delayMin = config.delayMin || 2000;
-    const delayMax = config.delayMax || 5000;
-    await randomDelay(delayMin, delayMax);
-    
-    // Mostrar estado "escribiendo..." mientras se decide/consulta la respuesta
-    const typingPromise = simulateTyping(sock, remoteJid, 0);
-
-    // Decide (según config.responseMode) si responde directo del catálogo,
-    // con IA, o una mezcla — ver answerQuery()
-    const { text: respuesta, images: ragImages } = await answerQuery(combinedMessage, answerQueryDeps());
-    const lastMsg = messagesToProcess[messagesToProcess.length - 1].msg; // Último mensaje para citar
-
-    await typingPromise;
-
-    // Procesar respuesta con soporte para fórmulas LaTeX
-    await processAIResponseWithFormulas(respuesta, sock, remoteJid, lastMsg);
-
-    // Si alguna coincidencia del catálogo tiene imagen, enviarla también
-    if (ragImages.length > 0) {
-      await sendRagImages(sock, remoteJid, ragImages, lastMsg);
-    }
-    
-    incrementMessageCount();
-    if (botState.logsEnabled) {
-      const tipo = isGroup ? '[GRUPO]' : '[CONTACTO]';
-      addLog(`✅ ${tipo} Respuesta enviada (${botState.messagesSentLastHour}/${MAX_MESSAGES_PER_HOUR} esta hora)`, 'success');
-    }
-    
-  } catch (error) {
-    console.error('❌ Error al procesar cola:', error.message);
-    appLogger.error({ err: error }, 'Error al procesar cola de usuario');
-  } finally {
-    // Marcar como no procesando
-    queue.processing = false;
-    
-    // Si hay más mensajes en la cola, programar siguiente procesamiento
-    if (queue.messages.length > 0) {
-      // Cancelar timeout anterior si existe
-      if (queue.timeout) {
-        clearTimeout(queue.timeout);
-      }
-      
-      // Programar procesamiento de siguientes mensajes
-      queue.timeout = setTimeout(() => {
-        processUserQueue(userId, sock);
-      }, GROUPING_DELAY);
-    }
-  }
+  return processUserQueueImpl(userId, sock, messageProcessorDeps);
 }
 
 
@@ -700,11 +613,19 @@ async function callGeminiPapear(targetMessage, argumentos = '') {
 }
 
 // Procesar comandos
-async function processCommand(command, message, sock, remoteJid, msg = null) {
-  const cmd = command.toLowerCase();
-  
-  // Comandos especiales con IA
-  if (cmd === '/menu') {
+// ============================================================
+// Registro de comandos (Etapa 5 de la reestructuración)
+// ============================================================
+// Cada comando es un handler independiente en un Map en vez de una rama
+// más en un if/else de ~600 líneas — mismo cuerpo exacto de antes, solo
+// reorganizado, para que agregar/ubicar un comando no requiera escanear
+// todo el archivo. Los handlers siguen usando los mismos globals del
+// módulo (config/botState/addLog/etc.) que antes — esta etapa cambia la
+// forma del despacho, no introduce inyección de dependencias.
+const commandHandlers = new Map();
+
+// Comandos especiales con IA
+commandHandlers.set('/menu', async (message, sock, remoteJid, msg) => {
     const isGroup = remoteJid.endsWith('@g.us');
     
     let menu = `🎯 *MENÚ DEL BOT* 🎯\n\n`;
@@ -756,10 +677,9 @@ async function processCommand(command, message, sock, remoteJid, msg = null) {
     menu += `✨ _¡Estoy aquí para ayudarte!_ ✨`;
     
     await sock.sendMessage(remoteJid, { text: menu }, { quoted: msg });
-    return;
-  }
-  
-  if (cmd === '/ayuda') {
+});
+
+commandHandlers.set('/ayuda', async (message, sock, remoteJid, msg) => {
     const comandosLista = Object.entries(config.comandos || {})
       .map(([c, d]) => `${c} - ${d}`)
       .join('\n');
@@ -774,10 +694,9 @@ async function processCommand(command, message, sock, remoteJid, msg = null) {
     respuesta += `\n_Configurado desde el panel web_`;
     
     await sock.sendMessage(remoteJid, { text: respuesta }, { quoted: msg });
-    return;
-  }
-  
-  if (cmd === '/gg') {
+});
+
+commandHandlers.set('/gg', async (message, sock, remoteJid, msg) => {
     const query = message.replace('/gg', '').trim();
     if (!query) {
       await sock.sendMessage(remoteJid, { 
@@ -814,11 +733,9 @@ async function processCommand(command, message, sock, remoteJid, msg = null) {
       }, { quoted: msg });
       if (botState.logsEnabled) addLog(`❌ Error enviando imagen: ${error.message}`, 'error');
     }
-    
-    return;
-  }
-  
-  if (cmd === '/go') {
+});
+
+commandHandlers.set('/go', async (message, sock, remoteJid, msg) => {
     const query = message.replace('/go', '').trim();
     if (!query) {
       await sock.sendMessage(remoteJid, { 
@@ -871,11 +788,9 @@ async function processCommand(command, message, sock, remoteJid, msg = null) {
       }, { quoted: msg });
       if (botState.logsEnabled) addLog(`❌ Error enviando imagen de Google: ${error.message}`, 'error');
     }
-    
-    return;
-  }
-  
-  if (cmd === '/analizar') {
+});
+
+commandHandlers.set('/analizar', async (message, sock, remoteJid, msg) => {
     // Extraer pregunta opcional
     const question = message.replace('/analizar', '').trim();
     
@@ -915,11 +830,9 @@ async function processCommand(command, message, sock, remoteJid, msg = null) {
       }, { quoted: msg });
       if (botState.logsEnabled) addLog(`❌ Error analizando imagen: ${error.message}`, 'error');
     }
-    
-    return;
-  }
-  
-  if (cmd === '/guardar') {
+});
+
+commandHandlers.set('/guardar', async (message, sock, remoteJid, msg) => {
     // Eliminado mensaje de estado "Buscando..."
     
     try {
@@ -983,11 +896,9 @@ async function processCommand(command, message, sock, remoteJid, msg = null) {
       }, { quoted: msg });
       if (botState.logsEnabled) addLog(`❌ Error guardando View Once: ${error.message}`, 'error');
     }
-    
-    return;
-  }
-  
-  if (cmd === '/s') {
+});
+
+commandHandlers.set('/s', async (message, sock, remoteJid, msg) => {
     // Mostrar estado "escribiendo..." mientras crea el sticker
     await simulateTyping(sock, remoteJid, 1500); // 1.5 segundos
     
@@ -1052,11 +963,9 @@ async function processCommand(command, message, sock, remoteJid, msg = null) {
       }, { quoted: msg });
       if (botState.logsEnabled) addLog(`❌ Error creando sticker: ${error.message}`, 'error');
     }
-    
-    return;
-  }
-  
-  if (cmd === '/r') {
+});
+
+commandHandlers.set('/r', async (message, sock, remoteJid, msg) => {
     // Mostrar estado "escribiendo..." mientras convierte el sticker
     await simulateTyping(sock, remoteJid, 1000); // 1 segundo
     
@@ -1109,11 +1018,9 @@ async function processCommand(command, message, sock, remoteJid, msg = null) {
       }, { quoted: msg });
       if (botState.logsEnabled) addLog(`❌ Error convirtiendo sticker: ${error.message}`, 'error');
     }
-    
-    return;
-  }
-  
-  if (cmd === '/elon') {
+});
+
+commandHandlers.set('/elon', async (message, sock, remoteJid, msg) => {
     const texto = message.replace('/elon', '').trim();
     if (!texto) {
       await sock.sendMessage(remoteJid, { text: '⚠️ Envía tu pregunta después del comando /elon\n\nEjemplo: /elon ¿Qué opinas de los coches eléctricos?' }, { quoted: msg });
@@ -1130,10 +1037,9 @@ async function processCommand(command, message, sock, remoteJid, msg = null) {
     // Procesar respuesta con soporte para fórmulas LaTeX
     const respuestaConEncabezado = `🤖 *Grok (xAI):*\n\n${respuesta}`;
     await processAIResponseWithFormulas(respuestaConEncabezado, sock, remoteJid, msg);
-    return;
-  }
-  
-  if (cmd === '/sora') {
+});
+
+commandHandlers.set('/sora', async (message, sock, remoteJid, msg) => {
     const texto = message.replace('/sora', '').trim();
     if (!texto) {
       await sock.sendMessage(remoteJid, { text: '⚠️ Envía tu pregunta después del comando /sora\n\nEjemplo: /sora ¿Cómo funciona la inteligencia artificial?' }, { quoted: msg });
@@ -1150,10 +1056,9 @@ async function processCommand(command, message, sock, remoteJid, msg = null) {
     // Procesar respuesta con soporte para fórmulas LaTeX
     const respuestaConEncabezado = `🤖 *ChatGPT (OpenAI):*\n\n${respuesta}`;
     await processAIResponseWithFormulas(respuestaConEncabezado, sock, remoteJid, msg);
-    return;
-  }
-  
-  if (cmd === '/pregunta') {
+});
+
+commandHandlers.set('/pregunta', async (message, sock, remoteJid, msg) => {
     const texto = message.replace('/pregunta', '').trim();
     if (!texto) {
       await sock.sendMessage(remoteJid, { text: '⚠️ Envía tu pregunta después del comando /pregunta\n\nEjemplo: /pregunta ¿Cómo estás?' }, { quoted: msg });
@@ -1175,10 +1080,9 @@ async function processCommand(command, message, sock, remoteJid, msg = null) {
     if (preguntaImages.length > 0) {
       await sendRagImages(sock, remoteJid, preguntaImages, msg);
     }
-    return;
-  }
+});
 
-  if (cmd === '/catalogo') {
+commandHandlers.set('/catalogo', async (message, sock, remoteJid, msg) => {
     const consulta = message.replace('/catalogo', '').trim();
 
     try {
@@ -1217,10 +1121,9 @@ async function processCommand(command, message, sock, remoteJid, msg = null) {
       console.error('❌ Error en /catalogo:', error.message);
       await sock.sendMessage(remoteJid, { text: '❌ Error al consultar el catálogo. Intenta de nuevo.' }, { quoted: msg });
     }
-    return;
-  }
+});
 
-  if (cmd === '/resumen') {
+commandHandlers.set('/resumen', async (message, sock, remoteJid, msg) => {
     const texto = message.replace('/resumen', '').trim();
     if (!texto) {
       await sock.sendMessage(remoteJid, { text: '⚠️ Envía un texto después del comando /resumen' }, { quoted: msg });
@@ -1236,10 +1139,9 @@ async function processCommand(command, message, sock, remoteJid, msg = null) {
     
     // Procesar respuesta con soporte para fórmulas LaTeX
     await processAIResponseWithFormulas(respuesta, sock, remoteJid, msg);
-    return;
-  }
-  
-  if (cmd === '/papear') {
+});
+
+commandHandlers.set('/papear', async (message, sock, remoteJid, msg) => {
     // Extraer argumentos opcionales
     const argumentos = message.replace('/papear', '').trim();
     
@@ -1287,23 +1189,35 @@ async function processCommand(command, message, sock, remoteJid, msg = null) {
     }
     
     if (botState.logsEnabled) addLog(`🔥 Papeada generada`, 'success');
+});
+
+// Despachador: busca el comando en el registro; si no está, revisa los
+// comandos dinámicos configurables desde el panel (comandosSimples/comandos)
+// antes de responder "no reconocido" — mismo orden de resolución de antes.
+// Exportado para poder probar el mecanismo de despacho (test/commands.test.js).
+export async function processCommand(command, message, sock, remoteJid, msg = null) {
+  const cmd = command.toLowerCase();
+
+  const handler = commandHandlers.get(cmd);
+  if (handler) {
+    await handler(message, sock, remoteJid, msg);
     return;
   }
-  
+
   // Comandos simples (sin IA)
   if (config.comandosSimples && config.comandosSimples[cmd]) {
     const respuesta = config.comandosSimples[cmd];
     await sock.sendMessage(remoteJid, { text: respuesta }, { quoted: msg });
     return;
   }
-  
+
   // Comandos con IA (descripción)
   if (config.comandos && config.comandos[cmd]) {
     const description = config.comandos[cmd];
     await sock.sendMessage(remoteJid, { text: `ℹ️ ${description}` }, { quoted: msg });
     return;
   }
-  
+
   // Comando no encontrado
   await sock.sendMessage(remoteJid, { text: '❌ Comando no reconocido. Usa /ayuda para ver los comandos disponibles.' }, { quoted: msg });
 }
