@@ -5,7 +5,6 @@ import { loginWithPhone } from './auth/loginPhone.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
-import sharp from 'sharp';
 import * as rag from './rag.js';
 import { appLogger } from './logger.js';
 import {
@@ -29,6 +28,8 @@ import { createImageCommands } from './commands/images.js';
 import { createMediaCommands } from './commands/media.js';
 import { createAiCommands } from './commands/ai.js';
 import { createBusinessCommands } from './commands/business.js';
+import { detectLatexFormulas, renderLatexToImage } from './media/latex.js';
+import { imageToSticker, stickerToImage } from './media/stickers.js';
 
 // Re-exportados para que test/geminiLimiter.test.js siga importando desde
 // bot.js sin cambios (la lógica en sí vive en providers/geminiLimiter.js).
@@ -128,72 +129,6 @@ async function simulateTyping(sock, remoteJid, durationMs = 3000) {
   }
 }
 
-// Detectar fórmulas LaTeX en el texto
-function detectLatexFormulas(text) {
-  const formulas = [];
-  
-  // Detectar fórmulas en bloque: $$...$$
-  const blockRegex = /\$\$([\s\S]*?)\$\$/g;
-  let match;
-  
-  while ((match = blockRegex.exec(text)) !== null) {
-    formulas.push({
-      type: 'block',
-      latex: match[1].trim(),
-      original: match[0],
-      index: match.index
-    });
-  }
-  
-  // Detectar fórmulas inline: $...$
-  const inlineRegex = /\$([^\$\n]+?)\$/g;
-  
-  while ((match = inlineRegex.exec(text)) !== null) {
-    // Evitar detectar las ya encontradas en bloques
-    const isInBlock = formulas.some(f => 
-      match.index >= f.index && match.index < f.index + f.original.length
-    );
-    
-    if (!isInBlock) {
-      formulas.push({
-        type: 'inline',
-        latex: match[1].trim(),
-        original: match[0],
-        index: match.index
-      });
-    }
-  }
-  
-  return formulas;
-}
-
-// Renderizar fórmula LaTeX como imagen usando CodeCogs API
-async function renderLatexToImage(latex) {
-  try {
-    // Limpiar y codificar la fórmula
-    const cleanLatex = latex.trim();
-    const encodedLatex = encodeURIComponent(cleanLatex);
-    
-    // URL de CodeCogs (API gratuita, sin key necesaria)
-    // Formato: png, tamaño: grande (300 DPI), color: negro
-    const imageUrl = `https://latex.codecogs.com/png.latex?\\dpi{300}\\bg_white\\large ${encodedLatex}`;
-    
-    // Descargar la imagen
-    const response = await fetch(imageUrl);
-    
-    if (!response.ok) {
-      throw new Error(`Error al renderizar: ${response.status}`);
-    }
-    
-    const buffer = await response.arrayBuffer();
-    return Buffer.from(buffer);
-    
-  } catch (error) {
-    console.error('❌ Error al renderizar LaTeX:', error.message);
-    return null;
-  }
-}
-
 // Procesar respuesta de IA con fórmulas LaTeX
 async function processAIResponseWithFormulas(text, sock, remoteJid, quotedMsg) {
   try {
@@ -254,15 +189,12 @@ async function processAIResponseWithFormulas(text, sock, remoteJid, quotedMsg) {
         const imageBuffer = await renderLatexToImage(part.content.latex);
         
         if (imageBuffer) {
-          // Convertir a sticker (512x512, webp)
-          const stickerBuffer = await sharp(imageBuffer)
-            .resize(512, 512, {
-              fit: 'contain',
-              background: { r: 255, g: 255, b: 255, alpha: 1 } // Fondo blanco
-            })
-            .webp()
-            .toBuffer();
-          
+          // Convertir a sticker (512x512, webp) — fondo blanco porque
+          // CodeCogs ya renderiza la fórmula sobre blanco.
+          const stickerBuffer = await imageToSticker(imageBuffer, {
+            background: { r: 255, g: 255, b: 255, alpha: 1 }
+          });
+
           await sock.sendMessage(remoteJid, {
             sticker: stickerBuffer
           }, { quoted: quotedMsg });
@@ -632,7 +564,7 @@ function commandContext() {
   return {
     config, botState, addLog, appLogger,
     simulateTyping, randomDelay,
-    downloadMediaMessage, sharp,
+    downloadMediaMessage, imageToSticker, stickerToImage,
     callGrok, callChatGPT, callGemini, callGeminiPapear, analyzeImageWithGemini,
     processAIResponseWithFormulas, sendRagImages,
     answerQuery: (query) => answerQuery(query, answerQueryDeps()),

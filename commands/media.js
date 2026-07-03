@@ -109,7 +109,7 @@ export function createMediaCommands() {
     },
 
     '/s': async (message, sock, remoteJid, msg, ctx) => {
-      const { botState, addLog, simulateTyping, downloadMediaMessage, sharp } = ctx;
+      const { botState, addLog, simulateTyping, downloadMediaMessage, imageToSticker } = ctx;
       // Mostrar estado "escribiendo..." mientras crea el sticker
       await simulateTyping(sock, remoteJid, 1500); // 1.5 segundos
 
@@ -148,14 +148,7 @@ export function createMediaCommands() {
         let stickerBuffer;
 
         if (hasImage) {
-          // Procesar imagen con sharp
-          stickerBuffer = await sharp(buffer)
-            .resize(512, 512, {
-              fit: 'contain',
-              background: { r: 0, g: 0, b: 0, alpha: 0 }
-            })
-            .webp()
-            .toBuffer();
+          stickerBuffer = await imageToSticker(buffer);
         } else {
           // Para videos, usar el buffer directamente (Baileys lo maneja)
           stickerBuffer = buffer;
@@ -177,7 +170,7 @@ export function createMediaCommands() {
     },
 
     '/r': async (message, sock, remoteJid, msg, ctx) => {
-      const { botState, addLog, simulateTyping, downloadMediaMessage, sharp } = ctx;
+      const { botState, addLog, simulateTyping, downloadMediaMessage, stickerToImage } = ctx;
       // Mostrar estado "escribiendo..." mientras convierte el sticker
       await simulateTyping(sock, remoteJid, 1000); // 1 segundo
 
@@ -212,9 +205,7 @@ export function createMediaCommands() {
         const buffer = await downloadMediaMessage(targetMsg, 'buffer', {});
 
         // Convertir sticker (webp) a imagen PNG con calidad alta
-        const imageBuffer = await sharp(buffer)
-          .png({ quality: 100 })
-          .toBuffer();
+        const imageBuffer = await stickerToImage(buffer);
 
         // Enviar como imagen citando el mensaje original
         await sock.sendMessage(remoteJid, {
