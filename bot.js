@@ -540,7 +540,9 @@ function answerQueryDeps() {
   return {
     config, botState, addLog,
     getRagContext, callGemini, callGeminiRaw,
-    ragHighConfidenceScore: rag.HIGH_CONFIDENCE_SCORE,
+    // Configurable desde el panel (config.ragConfidenceThreshold) — antes
+    // era un número fijo en rag.js que solo se podía cambiar editando código.
+    ragHighConfidenceScore: config.ragConfidenceThreshold ?? rag.HIGH_CONFIDENCE_SCORE,
     GeminiRateLimitError
   };
 }

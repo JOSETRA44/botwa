@@ -93,3 +93,44 @@ test('lanza GeminiRateLimitError al agotar los reintentos', async () => {
     GeminiRateLimitError
   );
 });
+
+test('reintenta en 503 (modelo con alta demanda) igual que en 429', async () => {
+  let calls = 0;
+  const waits = [];
+  const limiter = makeGeminiLimiter({
+    sleepImpl: instantSleep(waits),
+    fetchImpl: async () => {
+      calls++;
+      if (calls <= 2) return { status: 503, headers: { get: () => null } };
+      return { status: 200, ok: true, headers: { get: () => null } };
+    }
+  });
+  const response = await limiter.fetchWithRetry('http://fake', {}, 2);
+  assert.equal(calls, 3, 'debe reintentar en 503 igual que en 429');
+  assert.equal(response.status, 200);
+  assert.deepEqual(waits, [1500, 3000]);
+});
+
+test('503 persistente: agota reintentos y devuelve la respuesta 503 (no lanza GeminiRateLimitError)', async () => {
+  const limiter = makeGeminiLimiter({
+    sleepImpl: instantSleep([]),
+    fetchImpl: async () => ({ status: 503, headers: { get: () => null } })
+  });
+  const response = await limiter.fetchWithRetry('http://fake', {}, 1);
+  assert.equal(response.status, 503, 'un 503 persistente no es un límite de cuota, así que no debe lanzar GeminiRateLimitError');
+});
+
+test('503 no respeta Retry-After (esa cabecera es específica de 429)', async () => {
+  const waits = [];
+  let calls = 0;
+  const limiter = makeGeminiLimiter({
+    sleepImpl: instantSleep(waits),
+    fetchImpl: async () => {
+      calls++;
+      if (calls === 1) return { status: 503, headers: { get: () => '30' } };
+      return { status: 200, ok: true, headers: { get: () => null } };
+    }
+  });
+  await limiter.fetchWithRetry('http://fake', {});
+  assert.equal(waits[0], 1500, 'debe usar el backoff exponencial normal, no los 30s de la cabecera');
+});

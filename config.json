@@ -68,5 +68,6 @@
     "apiKey": "",
     "enabled": true,
     "model": "gemini-2.5-flash"
-  }
+  },
+  "ragConfidenceThreshold": 0.8
 }

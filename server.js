@@ -94,7 +94,17 @@ function toCommandObject(value) {
 // POST /config - Actualiza la configuración
 app.post('/config', async (req, res) => {
   try {
-    const { promptGlobal, apiKeyGemini, apiKeyGrok, gruposPermitidos, gruposExcluidos, comandos, comandosSimples, delayMin, delayMax, responseMode } = req.body;
+    const {
+      promptGlobal, apiKeyGemini, apiKeyGrok, gruposPermitidos, gruposExcluidos,
+      comandos, comandosSimples, delayMin, delayMax, responseMode, ragConfidenceThreshold,
+      geminiModel,
+      apiKeyOpenai, openaiModel,
+      apiKeyGeminiVision, geminiVisionModel,
+      apiKeyGeminiPapear, geminiPapearModel,
+      apiKeyUnsplashAccess, apiKeyUnsplashSecret,
+      apiKeyGoogleSearch, googleSearchEngineId,
+      grokModel
+    } = req.body;
 
     // Cargar config existente para preservar otras configuraciones
     const existingConfig = await loadConfig(CONFIG_PATH, DEFAULT_CONFIG);
@@ -102,29 +112,67 @@ app.post('/config', async (req, res) => {
     // Las API keys se guardan en .env, nunca en config.json
     if (apiKeyGemini) await setEnvVar('GEMINI_API_KEY', apiKeyGemini);
     if (apiKeyGrok) await setEnvVar('GROK_API_KEY', apiKeyGrok);
+    if (apiKeyOpenai) await setEnvVar('OPENAI_API_KEY', apiKeyOpenai);
+    if (apiKeyGeminiVision) await setEnvVar('GEMINI_VISION_API_KEY', apiKeyGeminiVision);
+    if (apiKeyGeminiPapear) await setEnvVar('GEMINI_PAPEAR_API_KEY', apiKeyGeminiPapear);
+    if (apiKeyUnsplashAccess) await setEnvVar('UNSPLASH_ACCESS_KEY', apiKeyUnsplashAccess);
+    if (apiKeyUnsplashSecret) await setEnvVar('UNSPLASH_SECRET_KEY', apiKeyUnsplashSecret);
+    if (apiKeyGoogleSearch) await setEnvVar('GOOGLE_SEARCH_API_KEY', apiKeyGoogleSearch);
 
     // Validar y procesar datos
     const config = {
       ...existingConfig,
       promptGlobal: promptGlobal || "Eres un asistente útil y educado.",
       apiKeyGemini: apiKeyGemini || existingConfig.apiKeyGemini || "",
+      geminiModel: geminiModel || existingConfig.geminiModel || "gemini-2.5-flash",
       responseMode: ['ai', 'hybrid', 'direct'].includes(responseMode) ? responseMode : (existingConfig.responseMode || 'hybrid'),
+      // Umbral (0-1) de similitud del catálogo a partir del cual el modo
+      // "hybrid" responde directo sin gastar cuota de IA — antes era un
+      // número fijo en el código (rag.HIGH_CONFIDENCE_SCORE = 0.80).
+      ragConfidenceThreshold: Number.isFinite(parseFloat(ragConfidenceThreshold))
+        ? Math.min(1, Math.max(0, parseFloat(ragConfidenceThreshold)))
+        : (existingConfig.ragConfidenceThreshold ?? 0.80),
       gruposPermitidos: toStringArray(gruposPermitidos),
       gruposExcluidos: toStringArray(gruposExcluidos),
       comandos: toCommandObject(comandos),
       comandosSimples: toCommandObject(comandosSimples),
       delayMin: parseInt(delayMin) || 2000,
-      delayMax: parseInt(delayMax) || 5000
-    };
-
-    // Actualizar Grok si se proporcionó
-    if (apiKeyGrok) {
-      config.grok = {
+      delayMax: parseInt(delayMax) || 5000,
+      grok: {
         ...existingConfig.grok,
-        apiKey: apiKeyGrok,
+        apiKey: apiKeyGrok || existingConfig.grok?.apiKey || '',
+        model: grokModel || existingConfig.grok?.model || 'grok-4-fast-non-reasoning',
         enabled: true
-      };
-    }
+      },
+      openai: {
+        ...existingConfig.openai,
+        apiKey: apiKeyOpenai || existingConfig.openai?.apiKey || '',
+        model: openaiModel || existingConfig.openai?.model || 'gpt-4o-mini',
+        enabled: true
+      },
+      geminiVision: {
+        ...existingConfig.geminiVision,
+        apiKey: apiKeyGeminiVision || existingConfig.geminiVision?.apiKey || '',
+        model: geminiVisionModel || existingConfig.geminiVision?.model || 'gemini-2.5-flash',
+        enabled: true
+      },
+      geminiPapear: {
+        ...existingConfig.geminiPapear,
+        apiKey: apiKeyGeminiPapear || existingConfig.geminiPapear?.apiKey || '',
+        model: geminiPapearModel || existingConfig.geminiPapear?.model || 'gemini-2.5-flash',
+        enabled: true
+      },
+      unsplash: {
+        ...existingConfig.unsplash,
+        accessKey: apiKeyUnsplashAccess || existingConfig.unsplash?.accessKey || '',
+        secretKey: apiKeyUnsplashSecret || existingConfig.unsplash?.secretKey || ''
+      },
+      googleSearch: {
+        ...existingConfig.googleSearch,
+        apiKey: apiKeyGoogleSearch || existingConfig.googleSearch?.apiKey || '',
+        searchEngineId: googleSearchEngineId || existingConfig.googleSearch?.searchEngineId || ''
+      }
+    };
 
     // Guardar configuración
     const saved = await saveConfig(CONFIG_PATH, config);

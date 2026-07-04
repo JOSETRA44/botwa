@@ -36,7 +36,13 @@ async function loadConfig() {
 
     qs('#promptGlobal').value = config.promptGlobal || '';
     qs('#apiKeyGemini').value = config.apiKeyGemini || '';
+    qs('#geminiModel').value = config.geminiModel || '';
     qs('#apiKeyGrok').value = config.grok?.apiKey || '';
+    qs('#grokModel').value = config.grok?.model || '';
+
+    const threshold = config.ragConfidenceThreshold ?? 0.80;
+    qs('#ragConfidenceThreshold').value = threshold;
+    qs('#ragConfidenceThresholdValue').textContent = Number(threshold).toFixed(2);
 
     const mode = config.responseMode || 'hybrid';
     const modeRadio = qs(`input[name="responseMode"][value="${mode}"]`);
@@ -48,6 +54,17 @@ async function loadConfig() {
     qs('#delayMax').value = config.delayMax || 5000;
     qs('#comandos').value = formatKeyValue(config.comandos);
     qs('#comandosSimples').value = formatKeyValue(config.comandosSimples);
+
+    qs('#apiKeyOpenai').value = config.openai?.apiKey || '';
+    qs('#openaiModel').value = config.openai?.model || '';
+    qs('#apiKeyGeminiVision').value = config.geminiVision?.apiKey || '';
+    qs('#geminiVisionModel').value = config.geminiVision?.model || '';
+    qs('#apiKeyGeminiPapear').value = config.geminiPapear?.apiKey || '';
+    qs('#geminiPapearModel').value = config.geminiPapear?.model || '';
+    qs('#apiKeyUnsplashAccess').value = config.unsplash?.accessKey || '';
+    qs('#apiKeyUnsplashSecret').value = config.unsplash?.secretKey || '';
+    qs('#apiKeyGoogleSearch').value = config.googleSearch?.apiKey || '';
+    qs('#googleSearchEngineId').value = config.googleSearch?.searchEngineId || '';
   } catch (error) {
     showAlert(`❌ Error al cargar la configuración: ${error.message}`, 'danger');
   }
@@ -59,14 +76,27 @@ async function saveConfig(event) {
   const payload = {
     promptGlobal: qs('#promptGlobal').value,
     apiKeyGemini: qs('#apiKeyGemini').value,
+    geminiModel: qs('#geminiModel').value,
     apiKeyGrok: qs('#apiKeyGrok').value,
+    grokModel: qs('#grokModel').value,
+    ragConfidenceThreshold: qs('#ragConfidenceThreshold').value,
     responseMode: qs('input[name="responseMode"]:checked')?.value || 'hybrid',
     gruposPermitidos: parseLines(qs('#gruposPermitidos').value),
     gruposExcluidos: parseLines(qs('#gruposExcluidos').value),
     comandos: parseKeyValueLines(qs('#comandos').value),
     comandosSimples: parseKeyValueLines(qs('#comandosSimples').value),
     delayMin: parseInt(qs('#delayMin').value, 10),
-    delayMax: parseInt(qs('#delayMax').value, 10)
+    delayMax: parseInt(qs('#delayMax').value, 10),
+    apiKeyOpenai: qs('#apiKeyOpenai').value,
+    openaiModel: qs('#openaiModel').value,
+    apiKeyGeminiVision: qs('#apiKeyGeminiVision').value,
+    geminiVisionModel: qs('#geminiVisionModel').value,
+    apiKeyGeminiPapear: qs('#apiKeyGeminiPapear').value,
+    geminiPapearModel: qs('#geminiPapearModel').value,
+    apiKeyUnsplashAccess: qs('#apiKeyUnsplashAccess').value,
+    apiKeyUnsplashSecret: qs('#apiKeyUnsplashSecret').value,
+    apiKeyGoogleSearch: qs('#apiKeyGoogleSearch').value,
+    googleSearchEngineId: qs('#googleSearchEngineId').value
   };
 
   try {
@@ -83,6 +113,9 @@ async function saveConfig(event) {
 
 export function initConfig() {
   qs('#configForm').addEventListener('submit', saveConfig);
+  qs('#ragConfidenceThreshold').addEventListener('input', (event) => {
+    qs('#ragConfidenceThresholdValue').textContent = Number(event.target.value).toFixed(2);
+  });
   qsa('input[name="responseMode"]').forEach((radio) => {
     radio.addEventListener('change', syncChoiceCardStyles);
   });

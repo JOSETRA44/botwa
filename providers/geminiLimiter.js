@@ -32,19 +32,27 @@ export function makeGeminiLimiter({
     callTimestamps.push(now());
   }
 
-  // fetch con reintento automático ante 429 (respeta Retry-After si Google lo envía)
+  // fetch con reintento automático ante 429 (límite de cuota, respeta
+  // Retry-After si Google lo envía) y 503 (sobrecarga temporal del modelo
+  // — "This model is currently experiencing high demand" — confirmado en
+  // producción que se resuelve solo en 1-2 reintentos con un pequeño
+  // backoff, y sin reintento el bot caía al catálogo directo aunque
+  // Gemini iba a responder bien un par de segundos después).
   async function fetchWithRetry(url, options, maxRetries = 2) {
     await waitForSlot();
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       const response = await fetchImpl(url, options);
-      if (response.status !== 429) return response;
+      if (response.status !== 429 && response.status !== 503) return response;
 
       if (attempt === maxRetries) {
-        throw new GeminiRateLimitError('Límite de solicitudes de Gemini alcanzado (429)');
+        if (response.status === 429) {
+          throw new GeminiRateLimitError('Límite de solicitudes de Gemini alcanzado (429)');
+        }
+        return response; // 503 persistente: se agotaron los reintentos, que el llamador lo trate como "Error de API: 503"
       }
-      const retryAfter = response.headers.get('retry-after');
+      const retryAfter = response.status === 429 ? response.headers.get('retry-after') : null;
       const backoffMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : 1500 * 2 ** attempt;
-      console.warn(`⚠️ Gemini 429 (intento ${attempt + 1}/${maxRetries}), reintentando en ${backoffMs}ms`);
+      console.warn(`⚠️ Gemini ${response.status} (intento ${attempt + 1}/${maxRetries}), reintentando en ${backoffMs}ms`);
       await sleepImpl(backoffMs);
     }
   }
