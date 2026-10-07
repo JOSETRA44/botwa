@@ -2,6 +2,16 @@
    Componentes reutilizables: tarjetas, botones, badges, formularios
    ============================================================ */
 
+/* ---------- Iconos (sprite SVG vendorizado, ver index.html) ---------- */
+
+.icon {
+  width: 1.1em;
+  height: 1.1em;
+  stroke: currentColor;
+  flex-shrink: 0;
+  vertical-align: -0.15em;
+}
+
 /* ---------- Tarjeta ---------- */
 
 .card {

@@ -16,13 +16,89 @@
   <link rel="stylesheet" href="css/knowledge.css">
 </head>
 <body>
+  <!-- Sprite de iconos SVG (Lucide, MIT License — https://lucide.dev). Vendorizado
+       inline para que el panel funcione sin CDN ni dependencias de red, ya
+       que es un producto autoalojado que corre en la laptop del cliente.
+       Uso: <svg class="icon"><use href="#icon-NOMBRE"></use></svg> -->
+  <svg style="display:none" aria-hidden="true">
+    <symbol id="icon-bot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 8V4H8" /><rect width="16" height="12" x="4" y="8" rx="2" /><path d="M2 14h2" /><path d="M20 14h2" /><path d="M15 13v2" /><path d="M9 13v2" />
+    </symbol>
+    <symbol id="icon-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /><circle cx="12" cy="12" r="3" />
+    </symbol>
+    <symbol id="icon-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="14" y="3" width="5" height="18" rx="1" /><rect x="5" y="3" width="5" height="18" rx="1" />
+    </symbol>
+    <symbol id="icon-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" />
+    </symbol>
+    <symbol id="icon-clipboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect width="8" height="4" x="8" y="2" rx="1" ry="1" /><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><path d="M12 11h4" /><path d="M12 16h4" /><path d="M8 11h.01" /><path d="M8 16h.01" />
+    </symbol>
+    <symbol id="icon-refresh-cw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" />
+    </symbol>
+    <symbol id="icon-scale" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3v18" /><path d="m19 8 3 8a5 5 0 0 1-6 0zV7" /><path d="M3 7h1a17 17 0 0 0 8-2 17 17 0 0 0 8 2h1" /><path d="m5 8 3 8a5 5 0 0 1-6 0zV7" /><path d="M7 21h10" />
+    </symbol>
+    <symbol id="icon-book-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 7v14" /><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
+    </symbol>
+    <symbol id="icon-sparkles" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z" /><path d="M20 2v4" /><path d="M22 4h-4" /><circle cx="4" cy="20" r="2" />
+    </symbol>
+    <symbol id="icon-plug" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 22v-5" /><path d="M15 8V2" /><path d="M17 8a1 1 0 0 1 1 1v4a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1z" /><path d="M9 8V2" />
+    </symbol>
+    <symbol id="icon-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 12h14" /><path d="M12 5v14" />
+    </symbol>
+    <symbol id="icon-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m21 21-4.34-4.34" /><circle cx="11" cy="11" r="8" />
+    </symbol>
+    <symbol id="icon-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+    </symbol>
+    <symbol id="icon-file-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /><path d="M14 2v5a1 1 0 0 0 1 1h5" /><path d="M10 9H8" /><path d="M16 13H8" /><path d="M16 17H8" />
+    </symbol>
+    <symbol id="icon-inbox" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+    </symbol>
+    <symbol id="icon-trash-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10 11v6" /><path d="M14 11v6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </symbol>
+    <symbol id="icon-circle-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10" /><path d="m15 9-6 6" /><path d="m9 9 6 6" />
+    </symbol>
+    <symbol id="icon-save" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" /><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7" /><path d="M7 3v4a1 1 0 0 0 1 1h7" />
+    </symbol>
+    <symbol id="icon-triangle-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /><path d="M12 9v4" /><path d="M12 17h.01" />
+    </symbol>
+    <symbol id="icon-circle-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" />
+    </symbol>
+    <symbol id="icon-scroll-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M15 12h-5" /><path d="M15 8h-5" /><path d="M19 17V5a2 2 0 0 0-2-2H4" /><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3" />
+    </symbol>
+    <symbol id="icon-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3v12" /><path d="m17 8-5-5-5 5" /><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    </symbol>
+    <symbol id="icon-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+    </symbol>
+  </svg>
+
   <div id="alertContainer"></div>
 
   <div class="shell">
     <!-- Cabecera -->
     <header class="top">
       <div class="brand-mark">
-        <div class="brand-mark-icon">🤖</div>
+        <div class="brand-mark-icon"><svg class="icon"><use href="#icon-bot"></use></svg></div>
         <div>
           <span class="eyebrow">Panel de control</span>
           <h1>Tu Bot de WhatsApp</h1>
@@ -52,12 +128,12 @@
     <section class="tab-panel" data-panel="panel">
       <div class="grid">
         <div class="card">
-          <div class="card-title">⚙️ Control del Bot</div>
+          <div class="card-title"><svg class="icon"><use href="#icon-settings"></use></svg> Control del Bot</div>
           <div class="btn-group">
-            <button id="btnPause" class="btn btn-warning">⏸️ Pausar</button>
-            <button id="btnResume" class="btn btn-success">▶️ Reanudar</button>
-            <button id="btnToggleLogs" class="btn btn-secondary">📋 Logs</button>
-            <button id="btnResetCounter" class="btn btn-secondary">🔄 Reset</button>
+            <button id="btnPause" class="btn btn-warning"><svg class="icon"><use href="#icon-pause"></use></svg> Pausar</button>
+            <button id="btnResume" class="btn btn-success"><svg class="icon"><use href="#icon-play"></use></svg> Reanudar</button>
+            <button id="btnToggleLogs" class="btn btn-secondary"><svg class="icon"><use href="#icon-clipboard"></use></svg> Logs</button>
+            <button id="btnResetCounter" class="btn btn-secondary"><svg class="icon"><use href="#icon-refresh-cw"></use></svg> Reset</button>
           </div>
           <div class="stat">
             <span class="stat-label">Mensajes esta hora</span>
@@ -66,10 +142,10 @@
         </div>
 
         <div class="card">
-          <div class="card-title">📋 Logs en Tiempo Real</div>
+          <div class="card-title"><svg class="icon"><use href="#icon-clipboard"></use></svg> Logs en Tiempo Real</div>
           <div class="btn-group" style="margin-bottom: var(--space-4);">
-            <button id="btnClearLogs" class="btn btn-secondary">🗑️ Limpiar</button>
-            <button id="btnToggleAutoScroll" class="btn btn-secondary">📜 Auto-scroll: ON</button>
+            <button id="btnClearLogs" class="btn btn-secondary"><svg class="icon"><use href="#icon-trash-2"></use></svg> Limpiar</button>
+            <button id="btnToggleAutoScroll" class="btn btn-secondary"><svg class="icon"><use href="#icon-scroll-text"></use></svg> Auto-scroll: ON</button>
           </div>
           <div class="logs-container" id="logsContainer">
             <div class="log-muted">Esperando logs...</div>
@@ -83,7 +159,7 @@
          ============================================================ -->
     <section class="tab-panel" data-panel="config" hidden>
       <div class="card">
-        <div class="card-title">⚙️ Configuración</div>
+        <div class="card-title"><svg class="icon"><use href="#icon-settings"></use></svg> Configuración</div>
         <form id="configForm">
           <div class="form-group">
             <label class="form-label" for="promptGlobal">Prompt Global</label>
@@ -102,17 +178,17 @@
             <div class="choice-group" role="radiogroup" aria-label="Modo de respuesta del bot">
               <label class="choice-card">
                 <input type="radio" name="responseMode" value="hybrid" checked>
-                <span class="choice-card-title">🤝 Equilibrado <span class="choice-card-badge">Recomendado</span></span>
+                <span class="choice-card-title"><svg class="icon"><use href="#icon-scale"></use></svg> Equilibrado <span class="choice-card-badge">Recomendado</span></span>
                 <span class="choice-card-desc">Si tu catálogo ya tiene la respuesta exacta (precio, horario, producto), la usa directamente. Si no, intenta responder con inteligencia artificial.</span>
               </label>
               <label class="choice-card">
                 <input type="radio" name="responseMode" value="direct">
-                <span class="choice-card-title">📚 Solo catálogo</span>
+                <span class="choice-card-title"><svg class="icon"><use href="#icon-book-open"></use></svg> Solo catálogo</span>
                 <span class="choice-card-desc">Responde siempre con lo que cargaste en la pestaña "Conocimiento". Nunca usa inteligencia artificial — funciona aunque no tengas una clave de IA configurada.</span>
               </label>
               <label class="choice-card">
                 <input type="radio" name="responseMode" value="ai">
-                <span class="choice-card-title">✨ Siempre con IA</span>
+                <span class="choice-card-title"><svg class="icon"><use href="#icon-sparkles"></use></svg> Siempre con IA</span>
                 <span class="choice-card-desc">Usa inteligencia artificial para todas las respuestas. Puede fallar temporalmente si Google limita las consultas gratuitas.</span>
               </label>
             </div>
@@ -132,7 +208,7 @@
           </div>
 
           <details class="form-group">
-            <summary class="form-label" style="cursor: pointer;">🔌 Integraciones avanzadas (opcionales)</summary>
+            <summary class="form-label" style="cursor: pointer;"><svg class="icon"><use href="#icon-plug"></use></svg> Integraciones avanzadas (opcionales)</summary>
             <p class="form-hint" style="margin-top: var(--space-2);">Cada una habilita un comando específico. Si no las configuras, el comando responderá "no configurada" en vez de fallar.</p>
 
             <div class="grid">
@@ -239,7 +315,7 @@
             <span class="form-hint">Formato: /comando=respuesta (uno por línea)</span>
           </div>
 
-          <button type="submit" class="btn btn-primary btn-block">💾 Guardar Cambios</button>
+          <button type="submit" class="btn btn-primary btn-block"><svg class="icon"><use href="#icon-save"></use></svg> Guardar Cambios</button>
         </form>
       </div>
     </section>
@@ -249,7 +325,7 @@
          ============================================================ -->
     <section class="tab-panel" data-panel="knowledge" hidden>
       <div class="card">
-        <div class="card-title">📚 Base de Conocimiento del Negocio</div>
+        <div class="card-title"><svg class="icon"><use href="#icon-book-open"></use></svg> Base de Conocimiento del Negocio</div>
         <p class="card-note">
           Carga aquí la información de tu negocio (productos, precios, horarios, promociones).
           El bot la usará automáticamente para responder a los clientes, y si una entrada tiene imagen
@@ -272,21 +348,22 @@
               <span class="form-hint">Separadas por comas. Ayudan a la búsqueda.</span>
             </div>
             <div class="form-group">
-              <label class="form-label" for="kbImage">Imagen de catálogo (opcional)</label>
-              <input type="file" id="kbImage" class="form-input" accept="image/png,image/jpeg,image/webp">
-              <span class="form-hint">Foto del producto que el bot enviará por WhatsApp (máx. 10 MB)</span>
+              <label class="form-label" for="kbFiles">Archivos adjuntos (opcional)</label>
+              <input type="file" id="kbFiles" class="form-input" accept="image/png,image/jpeg,image/webp,application/pdf" multiple>
+              <span class="form-hint">Imágenes o PDFs que el bot puede enviar por WhatsApp (máx. 5 archivos, 8 MB c/u). Agrega una descripción a cada uno para que el bot sepa cuándo mencionarlo.</span>
+              <div id="kbFilesPending"></div>
             </div>
-            <button type="button" id="btnKbAdd" class="btn btn-accent btn-block">➕ Agregar a la base</button>
+            <button type="button" id="btnKbAdd" class="btn btn-accent btn-block"><svg class="icon"><use href="#icon-plus"></use></svg> Agregar a la base</button>
           </div>
 
           <div>
             <div class="form-group">
-              <label class="form-label" for="kbSearchInput">🔎 Probar búsqueda (como preguntaría un cliente)</label>
+              <label class="form-label" for="kbSearchInput"><svg class="icon"><use href="#icon-search"></use></svg> Probar búsqueda (como preguntaría un cliente)</label>
               <input type="text" id="kbSearchInput" class="form-input" placeholder="Ej: ¿cuánto cuesta la pizza familiar?">
             </div>
             <div class="btn-group" style="margin-bottom: var(--space-4);">
               <button type="button" id="btnKbSearch" class="btn btn-secondary">Buscar</button>
-              <button type="button" id="btnKbReindex" class="btn btn-secondary" title="Regenera los embeddings de todas las entradas (útil si agregaste la API key después)">🔄 Reindexar</button>
+              <button type="button" id="btnKbReindex" class="btn btn-secondary" title="Regenera los embeddings de todas las entradas (útil si agregaste la API key después)"><svg class="icon"><use href="#icon-refresh-cw"></use></svg> Reindexar</button>
             </div>
             <div id="kbSearchResults"></div>
           </div>
@@ -299,7 +376,7 @@
       </div>
     </section>
 
-    <p class="footer-note">⚠️ Después de guardar cambios, reinicia el bot para aplicar la nueva configuración</p>
+    <p class="footer-note"><svg class="icon"><use href="#icon-triangle-alert"></use></svg> Después de guardar cambios, reinicia el bot para aplicar la nueva configuración</p>
   </div>
 
   <script type="module" src="js/main.js"></script>
