@@ -48,7 +48,7 @@ export function initLogs() {
   const btnAutoScroll = qs('#btnToggleAutoScroll');
   btnAutoScroll.addEventListener('click', () => {
     autoScroll = !autoScroll;
-    btnAutoScroll.textContent = autoScroll ? '📜 Auto-scroll: ON' : '📜 Auto-scroll: OFF';
+    btnAutoScroll.innerHTML = `<svg class="icon"><use href="#icon-scroll-text"></use></svg> Auto-scroll: ${autoScroll ? 'ON' : 'OFF'}`;
   });
 
   refreshLogs();

@@ -20,7 +20,7 @@ async function refreshStatus() {
       badge.className = 'status-badge status-paused';
     }
 
-    btnToggleLogs.textContent = state.logsEnabled ? '📋 Logs: ON' : '📋 Logs: OFF';
+    btnToggleLogs.innerHTML = `<svg class="icon"><use href="#icon-clipboard"></use></svg> Logs: ${state.logsEnabled ? 'ON' : 'OFF'}`;
     messageCount.textContent = state.messagesSentLastHour || 0;
   } catch (error) {
     console.error('Error al obtener el estado del bot:', error);

@@ -37,7 +37,11 @@ export const api = {
   addKnowledge: (entry) => fetch('/knowledge', {
     method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(entry)
   }).then(asJson),
+  updateKnowledge: (id, changes) => fetch(`/knowledge/${id}`, {
+    method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify(changes)
+  }).then(asJson),
   deleteKnowledge: (id) => fetch(`/knowledge/${id}`, { method: 'DELETE' }).then(asJson),
+  deleteKnowledgeFile: (entryId, fileId) => fetch(`/knowledge/${entryId}/file/${fileId}`, { method: 'DELETE' }).then(asJson),
   searchKnowledge: (query) => fetch('/knowledge/search', {
     method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ query })
   }).then(asJson),
