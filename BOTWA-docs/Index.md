@@ -24,7 +24,8 @@ Documentación del bot de WhatsApp (Baileys + Gemini/Grok/ChatGPT). Para la conf
 - [[Comando r y Formulas como Sticker]]
 
 ## ⚙️ Sistema
-- [[Reestructuracion Etapa 4 - Media]] ⭐ nuevo
+- [[Reestructuracion Etapas 8-10 - RAG Multi-Archivo y Navegacion]] ⭐ nuevo
+- [[Reestructuracion Etapa 4 - Media]]
 - [[Reestructuracion Etapa 7 - Verificacion de Arranque]]
 - [[Reestructuracion Etapa 5 y 6 - Comandos]]
 - [[Reestructuracion Etapa 3 - Cola y Envio WhatsApp]]
@@ -42,7 +43,8 @@ Documentación del bot de WhatsApp (Baileys + Gemini/Grok/ChatGPT). Para la conf
 - [[Panel Web - Nuevo Diseño]] (histórico)
 
 ## 🔧 Fixes
-- [[Fix Gemini 503 y Ampliacion del Panel]] ⭐ nuevo
+- [[Diagnostico de Respuestas Duplicadas]] ⭐ nuevo
+- [[Fix Gemini 503 y Ampliacion del Panel]]
 - [[Diagnostico de Entrega de Mensajes]]
 - [[Fix Error 429 Gemini - Limite de Cuota]]
 - [[Diagnostico de Codigo de Emparejamiento]]
