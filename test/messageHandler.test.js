@@ -19,9 +19,9 @@ function baseDeps(overrides = {}) {
     appLogger: { error: () => {} },
     randomDelay: overrides.randomDelay || (() => Promise.resolve()),
     simulateTyping: overrides.simulateTyping || (() => Promise.resolve()),
-    answerQuery: overrides.answerQuery || (async () => ({ text: 'respuesta', images: [] })),
+    answerQuery: overrides.answerQuery || (async () => ({ text: 'respuesta', attachments: [] })),
     processAIResponseWithFormulas: overrides.processAIResponseWithFormulas || (async () => {}),
-    sendRagImages: overrides.sendRagImages || (async () => {}),
+    sendEntryFiles: overrides.sendEntryFiles || (async () => {}),
     maxMessagesInGroup: overrides.maxMessagesInGroup ?? 5,
     groupingDelayMs: overrides.groupingDelayMs ?? 10,
     maxMessagesPerHour: overrides.maxMessagesPerHour ?? 100,
@@ -35,7 +35,7 @@ test('no hace nada si la cola ya está procesando', async () => {
   queueStore.getOrCreate('u1').processing = true;
 
   let called = false;
-  const deps = baseDeps({ queueStore, answerQuery: async () => { called = true; return { text: '', images: [] }; } });
+  const deps = baseDeps({ queueStore, answerQuery: async () => { called = true; return { text: '', attachments: [] }; } });
   await processUserQueue('u1', {}, () => deps);
   assert.equal(called, false);
 });
@@ -57,7 +57,7 @@ test('camino feliz: procesa un mensaje, llama answerQuery y envía la respuesta'
   let formulasArgs = null;
   const deps = baseDeps({
     queueStore,
-    answerQuery: async (query) => { assert.equal(query, 'hola'); return { text: 'respuesta IA', images: [] }; },
+    answerQuery: async (query) => { assert.equal(query, 'hola'); return { text: 'respuesta IA', attachments: [] }; },
     processAIResponseWithFormulas: async (text, sock, remoteJid, quotedMsg) => { formulasArgs = { text, remoteJid, quotedMsg }; }
   });
 
@@ -75,24 +75,24 @@ test('agrupa varios mensajes con el prefijo "Mensaje N:"', async () => {
   let receivedQuery = null;
   const deps = baseDeps({
     queueStore,
-    answerQuery: async (query) => { receivedQuery = query; return { text: 'ok', images: [] }; }
+    answerQuery: async (query) => { receivedQuery = query; return { text: 'ok', attachments: [] }; }
   });
   await processUserQueue('u1', {}, () => deps);
   assert.equal(receivedQuery, 'Mensaje 1: primero\nMensaje 2: segundo');
 });
 
-test('envía las imágenes del RAG cuando la respuesta trae alguna', async () => {
+test('envía los adjuntos del RAG cuando la respuesta trae alguno', async () => {
   const queueStore = createUserQueueStore();
   queueStore.add('u1', { text: 'hola', remoteJid: 'u1@s.whatsapp.net', msg: {} });
 
-  let sentImages = null;
+  let sentAttachments = null;
   const deps = baseDeps({
     queueStore,
-    answerQuery: async () => ({ text: 'ok', images: [{ title: 'A', imagePath: '/a.jpg' }] }),
-    sendRagImages: async (sock, remoteJid, images) => { sentImages = images; }
+    answerQuery: async () => ({ text: 'ok', attachments: [{ title: 'A', filePath: '/a.jpg', kind: 'image' }] }),
+    sendEntryFiles: async (sock, remoteJid, attachments) => { sentAttachments = attachments; }
   });
   await processUserQueue('u1', {}, () => deps);
-  assert.equal(sentImages.length, 1);
+  assert.equal(sentAttachments.length, 1);
 });
 
 test('límite de mensajes por hora alcanzado: no llama a answerQuery ni incrementa el contador', async () => {
@@ -104,7 +104,7 @@ test('límite de mensajes por hora alcanzado: no llama a answerQuery ni incremen
   const deps = baseDeps({
     queueStore,
     canSendMessage: () => false,
-    answerQuery: async () => { calledAnswer = true; return { text: '', images: [] }; },
+    answerQuery: async () => { calledAnswer = true; return { text: '', attachments: [] }; },
     incrementMessageCount: () => { calledIncrement = true; }
   });
   await processUserQueue('u1', {}, () => deps);

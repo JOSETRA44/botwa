@@ -6,15 +6,15 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { answerQuery, GeminiRateLimitError } from '../bot.js';
 
-const KB_ENTRY_HIGH = { title: 'Pizza Familiar', text: 'S/35', score: 0.85, imageFile: 'pizza.jpg' };
-const KB_ENTRY_LOW = { title: 'Horario', text: '9am-6pm', score: 0.55, imageFile: null };
+const KB_ENTRY_HIGH = { id: 'e1', title: 'Pizza Familiar', text: 'S/35', score: 0.85, files: [{ id: 'f1', filename: 'pizza.jpg', mime: 'image/jpeg', kind: 'image', description: '' }] };
+const KB_ENTRY_LOW = { id: 'e2', title: 'Horario', text: '9am-6pm', score: 0.55, files: [] };
 
 function baseDeps(overrides = {}) {
   return {
     config: { responseMode: 'hybrid', apiKeyGemini: 'fake-key', ...overrides.config },
     botState: { logsEnabled: false, ...overrides.botState },
     addLog: overrides.addLog || (() => {}),
-    getRagContext: overrides.getRagContext || (async () => ({ context: '', images: [], results: [] })),
+    getRagContext: overrides.getRagContext || (async () => ({ context: '', attachments: [], results: [] })),
     callGemini: overrides.callGemini || (async () => 'respuesta IA'),
     callGeminiRaw: overrides.callGeminiRaw || (async () => 'respuesta IA'),
     ragHighConfidenceScore: 0.80,
@@ -25,7 +25,9 @@ function baseDeps(overrides = {}) {
 function ragWith(results) {
   return async () => ({
     context: 'contexto',
-    images: results.filter((r) => r.imageFile).map((r) => ({ title: r.title, imagePath: `/fake/${r.imageFile}` })),
+    attachments: results.flatMap((r) => (r.files || []).map((f) => ({
+      title: r.title, description: f.description, filePath: `/fake/${f.filename}`, mime: f.mime, kind: f.kind
+    }))),
     results
   });
 }
@@ -40,7 +42,7 @@ test('modo direct + alta confianza: responde directo del catálogo', async () =>
   const deps = baseDeps({ config: { responseMode: 'direct' }, getRagContext: ragWith([KB_ENTRY_HIGH]) });
   const result = await answerQuery('cuanto cuesta la pizza', deps);
   assert.match(result.text, /Pizza Familiar/);
-  assert.equal(result.images.length, 1);
+  assert.equal(result.attachments.length, 1);
 });
 
 test('modo direct + sin coincidencia: fallback genérico, sin IA', async () => {
