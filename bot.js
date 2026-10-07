@@ -5,7 +5,7 @@ import { loginWithPhone } from './auth/loginPhone.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
-import * as rag from './rag.js';
+import * as rag from './rag/index.js';
 import { appLogger } from './logger.js';
 import {
   DEFAULT_CONFIG,
@@ -21,7 +21,8 @@ import * as geminiProvider from './providers/gemini.js';
 import { callGrok as callGrokProvider } from './providers/grok.js';
 import { callChatGPT as callChatGPTProvider } from './providers/chatgpt.js';
 import { createUserQueueStore } from './whatsapp/queue.js';
-import { sendRagImages } from './whatsapp/send.js';
+import { createMessageDeduper } from './whatsapp/dedupe.js';
+import { sendEntryFiles } from './whatsapp/send.js';
 import { processUserQueue as processUserQueueImpl } from './whatsapp/messageHandler.js';
 import { createHelpCommands } from './commands/help.js';
 import { createImageCommands } from './commands/images.js';
@@ -80,6 +81,12 @@ const GROUPING_DELAY = 3000; // 3 segundos para agrupar mensajes
 const MAX_MESSAGES_IN_GROUP = 5; // Máximo 5 mensajes agrupados
 const MAX_QUEUE_SIZE = 10; // Máximo 10 mensajes en cola
 const userQueueStore = createUserQueueStore({ maxQueueSize: MAX_QUEUE_SIZE });
+
+// Deduplicador de mensajes — módulo, no dentro de setupBotHandlers, para
+// que sobreviva a las reconexiones (setupBotHandlers se vuelve a llamar
+// en cada reconexión; si el deduplicador se creara ahí adentro, perdería
+// la memoria justo en el momento en que más se necesita: al reconectar).
+const messageDeduper = createMessageDeduper();
 
 // Cargar configuración desde config.json (delega en shared/store.js)
 async function loadConfig() {
@@ -284,7 +291,7 @@ function messageProcessorDeps() {
     config, botState, addLog, appLogger,
     randomDelay, simulateTyping,
     answerQuery: (query) => answerQuery(query, answerQueryDeps()),
-    processAIResponseWithFormulas, sendRagImages,
+    processAIResponseWithFormulas, sendEntryFiles,
     maxMessagesInGroup: MAX_MESSAGES_IN_GROUP,
     groupingDelayMs: GROUPING_DELAY,
     maxMessagesPerHour: MAX_MESSAGES_PER_HOUR
@@ -435,7 +442,7 @@ async function getRagContext(query) {
     return await rag.buildContext(query);
   } catch (error) {
     console.error('⚠️ RAG no disponible:', error.message);
-    return { context: '', images: [], results: [] };
+    return { context: '', images: [], attachments: [], results: [] };
   }
 }
 
@@ -454,10 +461,18 @@ function formatKbAnswer(results, intro = KB_ANSWER_INTRO_CHAT) {
   return `${intro}\n\n${texto}`;
 }
 
-function kbResultsToImages(results) {
-  return results
-    .filter(r => r.imageFile)
-    .map(r => ({ title: r.title, imagePath: rag.getImagePath(r.imageFile) }));
+// Aplana los files[] de cada resultado del catálogo en adjuntos listos
+// para enviar (whatsapp/send.js:sendEntryFiles) — imágenes Y PDFs, cada
+// uno con su descripción real (antes solo se mandaba una imagen por
+// coincidencia con el título como caption fijo).
+function kbResultsToAttachments(results) {
+  return results.flatMap(r => (r.files || []).map(f => ({
+    title: r.title,
+    description: f.description,
+    filePath: rag.getFilePath(r.id, f.filename),
+    mime: f.mime,
+    kind: f.kind
+  })));
 }
 
 // ============================================================
@@ -496,31 +511,31 @@ export async function answerQuery(query, deps) {
 
   // ---- modo "ai": comportamiento de siempre, sin cambios ----
   if (mode === 'ai') {
-    return { text: await callGemini(query, ragResult.context), images: ragResult.images };
+    return { text: await callGemini(query, ragResult.context), attachments: ragResult.attachments };
   }
 
   // ---- modo "direct": nunca llama a la IA ----
   if (mode === 'direct') {
-    if (hasMatch) return { text: formatKbAnswer(ragResult.results), images: kbResultsToImages(ragResult.results) };
-    return { text: KB_NO_MATCH_FALLBACK, images: [] };
+    if (hasMatch) return { text: formatKbAnswer(ragResult.results), attachments: kbResultsToAttachments(ragResult.results) };
+    return { text: KB_NO_MATCH_FALLBACK, attachments: [] };
   }
 
   // ---- modo "hybrid" (por defecto) ----
   if (isHighConfidence) {
     // Coincidencia exacta del catálogo: responder directo, sin gastar cuota de IA.
-    return { text: formatKbAnswer(ragResult.results), images: kbResultsToImages(ragResult.results) };
+    return { text: formatKbAnswer(ragResult.results), attachments: kbResultsToAttachments(ragResult.results) };
   }
 
   // Sin coincidencia fuerte (charla general o coincidencia débil): intentar
   // IA solo si hay una key configurada, si no, ir directo al catálogo.
   if (!config.apiKeyGemini || config.apiKeyGemini.trim() === '') {
-    if (hasMatch) return { text: formatKbAnswer(ragResult.results), images: kbResultsToImages(ragResult.results) };
-    return { text: KB_NO_MATCH_FALLBACK, images: [] };
+    if (hasMatch) return { text: formatKbAnswer(ragResult.results), attachments: kbResultsToAttachments(ragResult.results) };
+    return { text: KB_NO_MATCH_FALLBACK, attachments: [] };
   }
 
   try {
     const aiText = await callGeminiRaw(query, ragResult.context);
-    return { text: aiText, images: ragResult.images };
+    return { text: aiText, attachments: ragResult.attachments };
   } catch (error) {
     // Cualquier fallo de la IA cae al catálogo si hay algo que mostrar;
     // el cliente nunca debe ver un mensaje de error crudo.
@@ -529,8 +544,8 @@ export async function answerQuery(query, deps) {
         ? '⏳ Gemini con límite alcanzado, respondiendo con el catálogo directo'
         : `⚠️ Gemini no disponible (${error.message}), respondiendo con el catálogo directo`, 'warning');
     }
-    if (hasMatch) return { text: formatKbAnswer(ragResult.results), images: kbResultsToImages(ragResult.results) };
-    return { text: KB_NO_MATCH_FALLBACK, images: [] };
+    if (hasMatch) return { text: formatKbAnswer(ragResult.results), attachments: kbResultsToAttachments(ragResult.results) };
+    return { text: KB_NO_MATCH_FALLBACK, attachments: [] };
   }
 }
 
@@ -568,9 +583,9 @@ function commandContext() {
     simulateTyping, randomDelay,
     downloadMediaMessage, imageToSticker, stickerToImage,
     callGrok, callChatGPT, callGemini, callGeminiPapear, analyzeImageWithGemini,
-    processAIResponseWithFormulas, sendRagImages,
+    processAIResponseWithFormulas, sendEntryFiles,
     answerQuery: (query) => answerQuery(query, answerQueryDeps()),
-    rag, formatKbAnswer, kbResultsToImages, KB_ANSWER_INTRO_COMMAND,
+    rag, formatKbAnswer, kbResultsToAttachments, KB_ANSWER_INTRO_COMMAND,
     searchGoogleImage, searchUnsplashImage
   };
 }
@@ -655,12 +670,32 @@ function setupBotHandlers(sock) {
   
   console.log('✅ Configurando manejadores de eventos...');
 
-  sock.ev.on('messages.upsert', async ({ messages }) => {
+  sock.ev.on('messages.upsert', async ({ messages, type }) => {
     try {
       const msg = messages[0];
-      
+
       if (!msg.message || msg.key.fromMe) return;
-      
+
+      // Baileys distingue mensajes en vivo ("notify") de reenvíos de
+      // sincronización de historial ("append") — estos últimos son
+      // comunes justo después de una reconexión y son mensajes que el
+      // bot ya procesó antes de desconectarse. Sin este filtro, cada
+      // reconexión podía hacer que el bot respondiera de nuevo al mismo
+      // mensaje (ver BOTWA-docs/Fixes/Diagnostico de Respuestas Duplicadas.md).
+      if (type !== 'notify') {
+        if (botState.logsEnabled) addLog(`⏭️ Mensaje de sincronización ignorado (type: ${type})`, 'info');
+        return;
+      }
+
+      // Defensa adicional: nunca procesar el mismo mensaje dos veces,
+      // incluso si llegara duplicado por cualquier otro motivo (reconexiones
+      // seguidas, conexión inestable).
+      if (messageDeduper.shouldSkip(msg.key.id)) {
+        if (botState.logsEnabled) addLog(`⏭️ Mensaje duplicado ignorado (${msg.key.id})`, 'info');
+        return;
+      }
+      messageDeduper.remember(msg.key.id);
+
       // Verificar si el bot está activo
       await loadBotState();
       if (!botState.active) {

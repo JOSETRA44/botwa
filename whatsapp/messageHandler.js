@@ -18,7 +18,7 @@ export async function processUserQueue(userId, sock, getDeps) {
     queueStore, canSendMessage, incrementMessageCount,
     config, botState, addLog, appLogger,
     randomDelay, simulateTyping,
-    answerQuery, processAIResponseWithFormulas, sendRagImages,
+    answerQuery, processAIResponseWithFormulas, sendEntryFiles,
     maxMessagesInGroup, groupingDelayMs, maxMessagesPerHour
   } = deps;
 
@@ -89,7 +89,7 @@ export async function processUserQueue(userId, sock, getDeps) {
 
     // Decide (según config.responseMode) si responde directo del catálogo,
     // con IA, o una mezcla — ver answerQuery()
-    const { text: respuesta, images: ragImages } = await answerQuery(combinedMessage);
+    const { text: respuesta, attachments: ragAttachments } = await answerQuery(combinedMessage);
     const lastMsg = messagesToProcess[messagesToProcess.length - 1].msg; // Último mensaje para citar
 
     await typingPromise;
@@ -97,9 +97,9 @@ export async function processUserQueue(userId, sock, getDeps) {
     // Procesar respuesta con soporte para fórmulas LaTeX
     await processAIResponseWithFormulas(respuesta, sock, remoteJid, lastMsg);
 
-    // Si alguna coincidencia del catálogo tiene imagen, enviarla también
-    if (ragImages.length > 0) {
-      await sendRagImages(sock, remoteJid, ragImages, lastMsg);
+    // Si alguna coincidencia del catálogo tiene archivos (imágenes/PDFs), enviarlos también
+    if (ragAttachments.length > 0) {
+      await sendEntryFiles(sock, remoteJid, ragAttachments, lastMsg);
     }
 
     incrementMessageCount();

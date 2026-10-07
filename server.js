@@ -4,7 +4,7 @@ import bodyParser from 'body-parser';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import * as rag from './rag.js';
+import * as rag from './rag/index.js';
 import {
   DEFAULT_CONFIG,
   DEFAULT_BOT_STATE,
@@ -264,39 +264,43 @@ app.get('/knowledge', async (req, res) => {
   }
 });
 
-// POST /knowledge - Crear entrada { title, text, tags?, imageBase64?, imageMime? }
+// POST /knowledge - Crear entrada { title, text, tags?, files?: [{base64,mime,filename,description}] }
 app.post('/knowledge', async (req, res) => {
   try {
-    const { title, text, tags, imageBase64, imageMime } = req.body;
+    const { title, text, tags, files } = req.body;
     if (!title || !text) {
       return res.status(400).json({ error: 'title y text son obligatorios' });
     }
     const tagList = typeof tags === 'string'
       ? tags.split(',').map(t => t.trim()).filter(Boolean)
       : (tags || []);
-    const entry = await rag.addEntry({ title, text, tags: tagList, imageBase64, imageMime });
+    const entry = await rag.addEntry({ title, text, tags: tagList, files: files || [] });
     res.json({ success: true, entry });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    // La mayoría de errores acá son de validación (mime/tamaño/cantidad de
+    // archivos), no fallas del servidor — 400 en vez de 500.
+    res.status(400).json({ error: error.message });
   }
 });
 
-// PUT /knowledge/:id - Actualizar entrada
+// PUT /knowledge/:id - Actualizar entrada. `removeFileIds`: array de ids de
+// archivo a borrar; `removeImage` (compat con el panel anterior a la
+// Etapa 8) borra todos los archivos de tipo imagen.
 app.put('/knowledge/:id', async (req, res) => {
   try {
-    const { title, text, tags, imageBase64, imageMime, removeImage } = req.body;
+    const { title, text, tags, files, removeFileIds, removeImage } = req.body;
     const tagList = typeof tags === 'string'
       ? tags.split(',').map(t => t.trim()).filter(Boolean)
       : tags;
-    const entry = await rag.updateEntry(req.params.id, { title, text, tags: tagList, imageBase64, imageMime, removeImage });
+    const entry = await rag.updateEntry(req.params.id, { title, text, tags: tagList, files, removeFileIds, removeImage });
     res.json({ success: true, entry });
   } catch (error) {
-    const status = error.message.includes('no encontrada') ? 404 : 500;
+    const status = error.message.includes('no encontrada') ? 404 : 400;
     res.status(status).json({ error: error.message });
   }
 });
 
-// DELETE /knowledge/:id - Eliminar entrada (y su imagen)
+// DELETE /knowledge/:id - Eliminar entrada (y todos sus archivos)
 app.delete('/knowledge/:id', async (req, res) => {
   try {
     await rag.deleteEntry(req.params.id);
@@ -307,14 +311,33 @@ app.delete('/knowledge/:id', async (req, res) => {
   }
 });
 
-// GET /knowledge/image/:file - Servir imagen de catálogo
-app.get('/knowledge/image/:file', async (req, res) => {
+// DELETE /knowledge/:id/file/:fileId - Borra un archivo puntual sin borrar la entrada
+app.delete('/knowledge/:id/file/:fileId', async (req, res) => {
   try {
-    const imagePath = rag.getImagePath(req.params.file);
-    await fs.access(imagePath);
-    res.sendFile(imagePath);
+    const entry = await rag.updateEntry(req.params.id, { removeFileIds: [req.params.fileId] });
+    res.json({ success: true, entry });
+  } catch (error) {
+    const status = error.message.includes('no encontrada') ? 404 : 500;
+    res.status(status).json({ error: error.message });
+  }
+});
+
+// GET /knowledge/file/:entryId/:fileId - Servir un archivo (imagen o PDF)
+// de una entrada. Generaliza el /knowledge/image/:file de antes de la
+// Etapa 8, que solo servía una imagen por entrada desde una carpeta plana.
+app.get('/knowledge/file/:entryId/:fileId', async (req, res) => {
+  try {
+    const entries = await rag.listEntries();
+    const entry = entries.find(e => e.id === req.params.entryId);
+    const file = entry?.files?.find(f => f.id === req.params.fileId);
+    if (!file) return res.status(404).json({ error: 'Archivo no encontrado' });
+
+    const filePath = rag.getFilePath(req.params.entryId, file.filename);
+    await fs.access(filePath);
+    res.setHeader('Content-Type', file.mime);
+    res.sendFile(filePath);
   } catch {
-    res.status(404).json({ error: 'Imagen no encontrada' });
+    res.status(404).json({ error: 'Archivo no encontrado' });
   }
 });
 
